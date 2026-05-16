@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "TAG Poker Trainer",
+    "slug": "poker-trainer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": { "backgroundColor": "#0a0a0a" },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tagpoker.trainer"
+    },
+    "android": {
+      "adaptiveIcon": { "backgroundColor": "#0a0a0a" }
+    }
+  }
+}
