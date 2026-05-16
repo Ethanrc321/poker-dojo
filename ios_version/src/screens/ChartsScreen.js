@@ -221,12 +221,20 @@ export default function ChartsScreen() {
                   raiseSet={facingFreqMap ? undefined : ranges.threebet}
                   callSet={facingFreqMap ? undefined : (ranges.call.size > 0 ? ranges.call : undefined)}
                   title={`${validHero} vs ${fcVillain} open`}
-                  subtitle="Blue = 3-bet  ·  Purple = Flat call  ·  Dark = Fold"
+                  subtitle="Red = Value 3-bet  ·  Blue = Bluff 3-bet  ·  Purple = Call  ·  Dark = Fold"
                 />
               </View>
 
               <NotePanel title={`${validHero} vs ${fcVillain} open`}>
-                {validHero === 'SB' && ['CO','BTN'].includes(fcVillain) ? (
+                {validHero === 'UTG1' && fcVillain === 'UTG' ? (
+                  <>
+                    <Text style={styles.notePanelText}>The tightest facing-RFI spot in the game. UTG has opened with only ~10% of hands — you are sandwiched between a premium range and 6 players who can still act. Play extremely tight.</Text>
+                    <Text style={styles.bulletText}>• 3-bet value (red): AA, KK, QQ, AKs, AKo — only the top of your range</Text>
+                    <Text style={styles.bulletText}>• 3-bet bluff (blue): A5s–A2s (ace blockers), T9s — balanced with the value range</Text>
+                    <Text style={styles.bulletText}>• Call (purple): JJ, TT, 99, 88, AQs, AJs, KQs, QJs, JTs — hands with set/equity value</Text>
+                    <Text style={styles.bulletText}>• Fold: everything else — even strong-looking hands like AQo, KJo, QQ− are too risky here</Text>
+                  </>
+                ) : validHero === 'SB' && ['CO','BTN'].includes(fcVillain) ? (
                   <>
                     <Text style={styles.notePanelText}>SB vs {fcVillain} is a pure 3-bet-or-fold spot. The positional disadvantage is too severe to flat-call — you'll play the entire hand OOP vs an aggressive opening range.</Text>
                     <Text style={styles.bulletText}>• 3-bet value: AA, KK, QQ, JJ+, AKs/o, AQs, TT (vs BTN)</Text>

@@ -342,6 +342,12 @@ export const RFI_MAPS = {
 
 const FACING_RFI_SETS = {
   UTG: {
+    // UTG+1 vs UTG — tightest spot; chart distinguishes value vs bluff 3-bets.
+    UTG1: {
+      threebetValue: new Set(['AA','KK','QQ','AKs','AKo']),
+      threebetBluff: new Set(['A5s','A4s','A3s','A2s','T9s']),
+      call:          new Set(['JJ','TT','99','88','AQs','AJs','KQs','QJs','JTs']),
+    },
     HJ:  { threebet: new Set(['AA','KK','QQ','JJ','AKs','AKo','A5s','A4s']),
            call:     new Set(['TT','99','AQs','KQs']) },
     CO:  { threebet: new Set(['AA','KK','QQ','JJ','AKs','AKo','AQs','A5s','A4s']),
@@ -393,7 +399,12 @@ const FACING_RFI_SETS = {
 
 /**
  * Build a frequency map for a facing-RFI scenario.
- * threebet → 'bluff' color (blue), call → 'call' color (purple).
+ *
+ * Supports two scenario formats:
+ *   Legacy:  { threebet, call }        → threebet = bluff (blue), call = purple
+ *   Split:   { threebetValue,           → threebetValue = raise (red)
+ *              threebetBluff, call }       threebetBluff = bluff (blue), call = purple
+ *
  * @param {string} openerPos
  * @param {string} heroPos
  * @returns {ScenarioMap | null}
@@ -401,7 +412,11 @@ const FACING_RFI_SETS = {
 export function getFacingRFIMap(openerPos, heroPos) {
   const scenario = FACING_RFI_SETS[openerPos]?.[heroPos];
   if (!scenario) return null;
-  return buildFreqMap({ bluff: scenario.threebet, call: scenario.call });
+  return buildFreqMap({
+    raise: scenario.threebetValue,                          // value 3-bets → red
+    bluff: scenario.threebetBluff ?? scenario.threebet,    // bluff 3-bets → blue
+    call:  scenario.call,
+  });
 }
 
 /** All valid [openerPos, heroPos] pairs for facing-RFI scenarios. */

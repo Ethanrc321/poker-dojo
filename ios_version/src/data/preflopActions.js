@@ -13,7 +13,7 @@ export const POS_FULL = {
 
 // Valid hero positions for each villain opener
 export const HERO_POSITIONS_FOR = {
-  UTG: ['HJ', 'CO', 'BTN', 'SB', 'BB'],
+  UTG: ['UTG1', 'HJ', 'CO', 'BTN', 'SB', 'BB'],
   HJ:  ['CO', 'BTN', 'SB', 'BB'],
   CO:  ['BTN', 'SB', 'BB'],
   BTN: ['SB', 'BB'],
@@ -23,6 +23,12 @@ export const HERO_POSITIONS_FOR = {
 export const FACING_OPEN_RANGES = {
   // ── UTG opens (~10% range) ────────────────────────────────────────────
   UTG: {
+    UTG1: {
+      // UTG+1 vs UTG open — tightest facing-RFI spot in the game.
+      // Value 3-bet + bluff 3-bet combined into threebet for trainer compatibility.
+      threebet: new Set(['AA','KK','QQ','AKs','AKo','A5s','A4s','A3s','A2s','T9s']),
+      call:     new Set(['JJ','TT','99','88','AQs','AJs','KQs','QJs','JTs']),
+    },
     HJ: {
       threebet: new Set(['AA','KK','QQ','JJ','AKs','AKo','A5s','A4s']),
       call:     new Set(['TT','99','AQs','KQs']),
