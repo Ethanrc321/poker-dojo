@@ -2,19 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HandMatrix from '../components/HandMatrix.js';
-import { POSITION_LABELS, RFI_VS_3BET } from '../data/ranges.js';
+import { POSITION_LABELS } from '../data/ranges.js';
 import { POT_ODDS_TABLE, MDF_TABLE } from '../data/scenarios.js';
-import { FACING_OPEN_RANGES, HERO_POSITIONS_FOR } from '../data/preflopActions.js';
-import {
-  RFI_MAPS, getFacingRFIMap, getVs3BetMap, validateScenario,
-} from '../data/pokerRanges.js';
+import { RFI_MAPS } from '../data/pokerRanges.js';
 import { C, Colors, Fonts, Size, Space, Radius, T } from '../theme.js';
 
 const VIEWS = [
-  { id: 'rfi',    label: 'RFI'        },
-  { id: 'facing', label: 'Facing RFI' },
-  { id: 'vs3bet', label: 'vs 3-Bet'   },
-  { id: 'math',   label: 'Math'       },
+  { id: 'rfi',  label: 'RFI'  },
+  { id: 'math', label: 'Math' },
 ];
 
 const RFI_POSITIONS = ['UTG','UTG1','UTG2','LJ','HJ','CO','BTN','SB'];
@@ -29,18 +24,6 @@ const RFI_STATS = {
   CO:   { pct: '27.0%', note: 'CO has 3 players behind. Adds K7s, Q8s, J8s, 86s, 75s, 64s, 43s, and offsuit broadway combos (A9o, KTo, QTo, JTo) over HJ. Pure raise or fold.' },
   BTN:  { pct: '51.1%', note: 'BTN is the most profitable seat — last to act every postflop street. Open 51.1% — all pairs, all suited aces/kings/queens, J6s+, T6s+, 96s+, and wide offsuit coverage including all Ax, K4o+, Q8o+, J8o+, and suited connectors.' },
   SB:   { pct: '71.3%', note: 'SB plays a unique 4-action strategy: raise for value (10.7% — AA–88, top suited/offsuit aces & kings), raise as bluff (13.0% — low Jx/Tx suited, low offsuit Qx/Kx), limp (47.7% — wide speculative hands), or fold (28.7%). Always OOP vs BB postflop.' },
-};
-
-const FACING_VILLAIN_POSITIONS = ['UTG','HJ','CO','BTN','SB'];
-
-const VS3BET_OPEN_POSITIONS = ['UTG','HJ','CO','BTN','SB'];
-
-const VS3BET_VILLAIN_FOR = {
-  UTG: ['HJ','CO','BTN','SB','BB'],
-  HJ:  ['CO','BTN','SB','BB'],
-  CO:  ['BTN','SB','BB'],
-  BTN: ['SB','BB'],
-  SB:  ['BB'],
 };
 
 const SPR_ROWS = [
@@ -96,12 +79,8 @@ function NotePanel({ title, children }) {
 
 export default function ChartsScreen() {
   const insets = useSafeAreaInsets();
-  const [view,       setView]       = useState('rfi');
-  const [rfiPos,     setRfiPos]     = useState('BTN');
-  const [fcVillain,  setFcVillain]  = useState('BTN');
-  const [fcHero,     setFcHero]     = useState('BB');
-  const [v3OpenPos,  setV3OpenPos]  = useState('BTN');
-  const [v3VillPos,  setV3VillPos]  = useState('BB');
+  const [view,   setView]   = useState('rfi');
+  const [rfiPos, setRfiPos] = useState('BTN');
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -181,176 +160,6 @@ export default function ChartsScreen() {
           </View>
         )}
 
-        {/* ── Facing RFI ─────────────────────────────────────────── */}
-        {view === 'facing' && (() => {
-          const heroOptions  = HERO_POSITIONS_FOR[fcVillain] || [];
-          const validHero    = heroOptions.includes(fcHero) ? fcHero : heroOptions[0];
-          const facingFreqMap = getFacingRFIMap(fcVillain, validHero);
-          const ranges       = FACING_OPEN_RANGES[fcVillain]?.[validHero] || { threebet: new Set(), call: new Set() };
-          const noCall       = ranges.call.size === 0;
-          return (
-            <View style={styles.section}>
-              <Text style={styles.fcSubLabel}>Villain opens from:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.posRow}>
-                {FACING_VILLAIN_POSITIONS.map(p => (
-                  <TouchableOpacity key={p} onPress={() => { setFcVillain(p); setFcHero(HERO_POSITIONS_FOR[p]?.[0] || 'BB'); }}
-                    style={[styles.posPill, fcVillain === p && styles.posPillRed]}>
-                    <Text style={[styles.posPillText, fcVillain === p && styles.posPillTextActive]}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <Text style={styles.fcSubLabel}>Your position:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.posRow}>
-                {heroOptions.map(p => (
-                  <TouchableOpacity key={p} onPress={() => setFcHero(p)}
-                    style={[styles.posPill, validHero === p && styles.posPillActive]}>
-                    <Text style={[styles.posPillText, validHero === p && styles.posPillTextActive]}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {noCall && (validHero === 'SB') && (
-                <View style={styles.alertBanner}>
-                  <Text style={styles.alertText}>⚠ SB vs {fcVillain}: 3-bet or fold — no flat calls (chart shows 0% call rate)</Text>
-                </View>
-              )}
-
-              <View style={styles.matrixPanel}>
-                <HandMatrix
-                  freqMap={facingFreqMap || undefined}
-                  raiseSet={facingFreqMap ? undefined : ranges.threebet}
-                  callSet={facingFreqMap ? undefined : (ranges.call.size > 0 ? ranges.call : undefined)}
-                  title={`${validHero} vs ${fcVillain} open`}
-                  subtitle="Red = Value 3-bet  ·  Blue = Bluff 3-bet  ·  Purple = Call  ·  Dark = Fold"
-                />
-              </View>
-
-              <NotePanel title={`${validHero} vs ${fcVillain} open`}>
-                {validHero === 'UTG1' && fcVillain === 'UTG' ? (
-                  <>
-                    <Text style={styles.notePanelText}>The tightest facing-RFI spot in the game. UTG has opened with only ~10% of hands — you are sandwiched between a premium range and 6 players who can still act. Play extremely tight.</Text>
-                    <Text style={styles.bulletText}>• 3-bet value (red): AA, KK, QQ, AKs, AKo — only the top of your range</Text>
-                    <Text style={styles.bulletText}>• 3-bet bluff (blue): A5s–A2s (ace blockers), T9s — balanced with the value range</Text>
-                    <Text style={styles.bulletText}>• Call (purple): JJ, TT, 99, 88, AQs, AJs, KQs, QJs, JTs — hands with set/equity value</Text>
-                    <Text style={styles.bulletText}>• Fold: everything else — even strong-looking hands like AQo, KJo, QQ− are too risky here</Text>
-                  </>
-                ) : validHero === 'SB' && ['CO','BTN'].includes(fcVillain) ? (
-                  <>
-                    <Text style={styles.notePanelText}>SB vs {fcVillain} is a pure 3-bet-or-fold spot. The positional disadvantage is too severe to flat-call — you'll play the entire hand OOP vs an aggressive opening range.</Text>
-                    <Text style={styles.bulletText}>• 3-bet value: AA, KK, QQ, JJ+, AKs/o, AQs, TT (vs BTN)</Text>
-                    <Text style={styles.bulletText}>• 3-bet bluff: A5s–A2s (blockers), suited connectors, KQs</Text>
-                    <Text style={styles.bulletText}>• Fold: everything else — even JTs, 99, AJo</Text>
-                  </>
-                ) : validHero === 'BB' ? (
-                  <>
-                    <Text style={styles.notePanelText}>BB is already invested 1bb, closing the action, and gets the best price in poker. Defend a wide range — the tighter the opener, the tighter you defend.</Text>
-                    <Text style={styles.bulletText}>• vs UTG: defend ~28% — respect the tight range</Text>
-                    <Text style={styles.bulletText}>• vs BTN: defend ~72% — BTN opens 51%, call very wide</Text>
-                    <Text style={styles.bulletText}>• vs SB: defend ~78% — you have position advantage postflop</Text>
-                    <Text style={styles.bulletText}>• 3-bet value: AA–JJ, AKs/o always. Add TT/AQs vs BTN/SB</Text>
-                    <Text style={styles.bulletText}>• 3-bet bluff: A5s–A2s (ace blockers + equity)</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.notePanelText}>From {validHero} vs {fcVillain}'s open, you have position postflop. Flat-calling is profitable with hands that flop well and have implied odds. 3-bet the top of your range.</Text>
-                    <Text style={styles.bulletText}>• 3-bet value: AA–QQ, AKs/o, AQs. Add JJ/AJs vs looser openers</Text>
-                    <Text style={styles.bulletText}>• 3-bet bluff: A5s–A3s (blockers). Add suited connectors vs BTN/CO</Text>
-                    <Text style={styles.bulletText}>• Flat call: medium pairs (set-mining), suited broadways, strong connectors</Text>
-                    <Text style={styles.bulletText}>• Fold: marginal offsuit hands, weak low cards</Text>
-                  </>
-                )}
-              </NotePanel>
-            </View>
-          );
-        })()}
-
-        {/* ── RFI vs 3-Bet ───────────────────────────────────────── */}
-        {view === 'vs3bet' && (() => {
-          const villOptions = VS3BET_VILLAIN_FOR[v3OpenPos] || ['BB'];
-          const validVill   = villOptions.includes(v3VillPos) ? v3VillPos : villOptions[0];
-
-          // Pick the right range sub-key
-          let rangeKey = 'vs_late';
-          if (v3OpenPos === 'UTG') {
-            rangeKey = ['HJ','CO'].includes(validVill) ? 'vs_tight' : 'vs_late';
-          } else if (v3OpenPos === 'HJ') {
-            rangeKey = ['UTG'].includes(validVill) ? 'vs_tight' : 'vs_late';
-          } else if (v3OpenPos === 'CO') {
-            rangeKey = validVill === 'BB' ? 'vs_BB' : 'vs_BTN_SB';
-          } else if (v3OpenPos === 'BTN') {
-            rangeKey = 'vs_SB_BB';
-          } else if (v3OpenPos === 'SB') {
-            rangeKey = 'vs_BB';
-          }
-
-          const vsRange     = RFI_VS_3BET[v3OpenPos]?.[rangeKey] || { fourBetValue: new Set(), fourBetBluff: new Set(), call: new Set() };
-          const vs3BetFreqMap = getVs3BetMap(v3OpenPos, validVill);
-
-          return (
-            <View style={styles.section}>
-              <Text style={styles.fcSubLabel}>You opened from:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.posRow}>
-                {VS3BET_OPEN_POSITIONS.map(p => (
-                  <TouchableOpacity key={p} onPress={() => { setV3OpenPos(p); setV3VillPos(VS3BET_VILLAIN_FOR[p]?.[0] || 'BB'); }}
-                    style={[styles.posPill, v3OpenPos === p && styles.posPillActive]}>
-                    <Text style={[styles.posPillText, v3OpenPos === p && styles.posPillTextActive]}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <Text style={styles.fcSubLabel}>3-bet from:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.posRow}>
-                {villOptions.map(p => (
-                  <TouchableOpacity key={p} onPress={() => setV3VillPos(p)}
-                    style={[styles.posPill, validVill === p && styles.posPillBlue]}>
-                    <Text style={[styles.posPillText, validVill === p && styles.posPillTextActive]}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <View style={styles.matrixPanel}>
-                <HandMatrix
-                  freqMap={vs3BetFreqMap || undefined}
-                  raiseSet={vs3BetFreqMap ? undefined : vsRange.fourBetValue}
-                  bluffSet={vs3BetFreqMap ? undefined : vsRange.fourBetBluff}
-                  callSet={vs3BetFreqMap  ? undefined : vsRange.call}
-                  title={`${v3OpenPos} opens — ${validVill} 3-bets`}
-                  subtitle="Red = 4-bet Value  ·  Blue = 4-bet Bluff  ·  Purple = Call  ·  Dark = Fold"
-                />
-              </View>
-
-              <NotePanel title={`${v3OpenPos} vs ${validVill} 3-bet`}>
-                <Text style={styles.notePanelText}>
-                  When you open from {v3OpenPos} and face a 3-bet from {validVill}, the chart recommends a polar 4-bet/call/fold strategy.
-                </Text>
-                <View style={styles.statRow}>
-                  <View style={[styles.statDot, { backgroundColor: '#b91c1c' }]} />
-                  <Text style={styles.statLabel}>4-bet for Value</Text>
-                  <Text style={styles.statVal}>{vsRange.fourBetValue.size} combos</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <View style={[styles.statDot, { backgroundColor: '#1e40af' }]} />
-                  <Text style={styles.statLabel}>4-bet as Bluff</Text>
-                  <Text style={styles.statVal}>{vsRange.fourBetBluff.size} combos</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <View style={[styles.statDot, { backgroundColor: '#7c3aed' }]} />
-                  <Text style={styles.statLabel}>Call 3-bet</Text>
-                  <Text style={styles.statVal}>{vsRange.call.size} combos</Text>
-                </View>
-                <Text style={[styles.bulletText, { marginTop: Space.xs }]}>• 4-bet Value: AA, KK + AKs/AKo (sometimes QQ depending on position)</Text>
-                <Text style={styles.bulletText}>• 4-bet Bluff: A5s/A4s (ace blocker + equity). Sizing: 2.5× the 3-bet</Text>
-                <Text style={styles.bulletText}>• Call: QQ–99, AQs, KQs — hands that play well in 3-bet pots IP</Text>
-                <Text style={styles.bulletText}>• Fold: hands outside all three categories</Text>
-                {v3OpenPos === 'SB' && (
-                  <Text style={[styles.bulletText, { color: C.amber, marginTop: Space.xxs }]}>
-                    Note: From SB, AA/KK/AKo may have been limped and are used as limp/3-bet value, not in the standard 4-bet range.
-                  </Text>
-                )}
-              </NotePanel>
-            </View>
-          );
-        })()}
-
         {/* ── Math Tables ────────────────────────────────────────── */}
         {view === 'math' && (
           <View style={styles.section}>
@@ -418,7 +227,7 @@ export default function ChartsScreen() {
               <Text style={styles.tableTitle}>4-Bet Sizing Reference</Text>
               <TableRow cells={['Position', '3-bet Size', '4-bet Size']} isHeader />
               {[
-                ['In Position',  '3× open = ~7.5bb', '2.5× 3-bet = ~19bb'],
+                ['In Position',     '3× open = ~7.5bb', '2.5× 3-bet = ~19bb'],
                 ['Out of Position', '3.5× open = ~9bb', '2.75× 3-bet = ~25bb'],
               ].map(([pos, three, four]) => (
                 <View key={pos} style={tableStyles.row}>
@@ -467,8 +276,6 @@ const styles = StyleSheet.create({
   posRow:             { gap: Space.xs, paddingRight: Space.base, marginBottom: Space.xxs },
   posPill:            { paddingHorizontal: Space.sm, paddingVertical: 7, borderRadius: Radius.sm, backgroundColor: Colors.bg2, marginRight: 6 },
   posPillActive:      { backgroundColor: C.amber },
-  posPillRed:         { backgroundColor: '#991b1b' },
-  posPillBlue:        { backgroundColor: C.blue },
   posPillText:        { fontFamily: Fonts.semibold, fontSize: Size.xs, color: Colors.textSecondary },
   posPillTextActive:  { color: '#fff' },
   matrixPanel:        { backgroundColor: Colors.bg2, borderRadius: Radius.lg, padding: Space.sm },
@@ -476,9 +283,6 @@ const styles = StyleSheet.create({
   notePanelTitle:     { fontFamily: Fonts.semibold, fontSize: Size.xs, color: Colors.textPrimary, marginBottom: Space.xxs },
   notePanelText:      { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textTertiary, lineHeight: Size.xs * 1.45 },
   bulletText:         { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textTertiary, lineHeight: Size.xs * 1.5 },
-  fcSubLabel:         { fontFamily: Fonts.semibold, fontSize: Size.xxs, color: Colors.textTertiary, marginBottom: 4 },
-  alertBanner:        { backgroundColor: 'rgba(180,83,9,0.12)', borderRadius: Radius.sm, borderWidth: 1, borderColor: 'rgba(180,83,9,0.35)', padding: Space.xs },
-  alertText:          { fontFamily: Fonts.semibold, fontSize: Size.xs, color: C.amber },
   statRow:            { flexDirection: 'row', alignItems: 'center', gap: Space.xs, paddingVertical: 2 },
   statDot:            { width: 10, height: 10, borderRadius: 5 },
   statLabel:          { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textSecondary, flex: 1 },
