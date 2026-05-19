@@ -22,6 +22,24 @@ const PERSONA_RING = { TAG:'#5577E0', CALLER:'#8068E8', LAG:'#E04545', NIT:'#9ca
 
 const n1 = x => Math.round(x * 10) / 10;
 
+// Quick playability score for the player's hole cards (higher = more playable).
+// Used only to bias dealing — not for strategy decisions.
+function playerHandScore(c1, c2) {
+  const r1 = RANK_VAL[c1.rank], r2 = RANK_VAL[c2.rank];
+  const hi = Math.max(r1, r2), lo = Math.min(r1, r2);
+  const suited = c1.suit === c2.suit;
+  const pair   = r1 === r2;
+  const gap    = hi - lo;
+  if (pair && r1 >= 9)                          return 10; // 99+
+  if (pair)                                      return 6;  // 22-88
+  if (hi === 14 && lo >= 10)                    return 10; // ATs+, AJo+
+  if (hi === 14 && suited)                       return 7;  // A2s-A9s
+  if (hi >= 12 && lo >= 10)                     return 7;  // KQs/o, QJs
+  if (suited && gap <= 1 && hi >= 8)            return 6;  // suited connectors/1-gappers 8+
+  if (hi >= 11 && lo >= 10)                     return 5;  // broadway offsuit
+  return 2;
+}
+
 function buildHand(hc, prevStacks) {
   const stacks = {};
   ALL_PIDS.forEach(p => {
@@ -37,7 +55,24 @@ function buildHand(hc, prevStacks) {
   ALL_PIDS.forEach((pid, i) => { pos[pid] = POSITIONS[(i + hc) % POSITIONS.length]; });
   const sbP = ALL_PIDS.find(p => pos[p] === 'SB');
   const bbP = ALL_PIDS.find(p => pos[p] === 'BB');
-  const deck = createDeck();
+
+  // ── Biased dealing: 70% of the time pick the most playable hand
+  //    from up to 8 shuffles so the player sees interesting decisions. ──
+  let deck = createDeck();
+  if (Math.random() < 0.70) {
+    let best = playerHandScore(deck[0], deck[1]);
+    for (let i = 0; i < 8 && best < 6; i++) {
+      const candidate = createDeck();
+      const score = playerHandScore(candidate[0], candidate[1]);
+      if (score > best) { best = score; deck = candidate; }
+    }
+  }
+
+  // ── Guaranteed caller: BB bot will always call the player's open
+  //    so the player always gets postflop action. ──
+  const bbBot = ALL_PIDS.find(p => pos[p] === 'BB' && p !== 'player');
+  if (bbBot) bots[bbBot] = { ...bots[bbBot], guaranteedCaller: true };
+
   const hands = {};
   ALL_PIDS.forEach((pid, i) => {
     hands[pid] = [deck[i * 2], deck[i * 2 + 1]];
@@ -254,6 +289,14 @@ export default function PlayScreen({ recordResult }) {
         }
         if (act === 'call' && callAmt === 0) act = 'check';
         if ((act === 'raise' || act === 'bet') && amt >= prev.stacks[currentActor] + (prev.streetBets[currentActor] || 0)) act = 'allin';
+
+        // Guaranteed caller: if this bot would fold but the player is still in,
+        // call instead — ensures the player always gets postflop action.
+        if (act === 'fold' && prev.bots[currentActor]?.guaranteedCaller
+            && prev.activePlayers.includes('player')) {
+          const botStack = prev.stacks[currentActor] || 0;
+          act = botStack > 0 ? 'call' : 'fold';
+        }
         let ng = applyAction(prev, currentActor, act, amt);
         if (ng.toAct.length === 0) ng = nextStreet(ng);
         return ng;
