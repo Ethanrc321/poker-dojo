@@ -68,10 +68,13 @@ function buildHand(hc, prevStacks) {
     }
   }
 
-  // ── Guaranteed caller: BB bot will always call the player's open
-  //    so the player always gets postflop action. ──
-  const bbBot = ALL_PIDS.find(p => pos[p] === 'BB' && p !== 'player');
-  if (bbBot) bots[bbBot] = { ...bots[bbBot], guaranteedCaller: true };
+  // ── Guaranteed action: ensures the player always faces at least one opponent.
+  //    • Player is NOT in BB → BB bot always calls the player's open.
+  //    • Player IS in BB    → SB bot always calls rather than fold,
+  //      so it never folds around and the player gets a walk. ──
+  const guarantorPos = pos['player'] === 'BB' ? 'SB' : 'BB';
+  const guarantorBot = ALL_PIDS.find(p => pos[p] === guarantorPos && p !== 'player');
+  if (guarantorBot) bots[guarantorBot] = { ...bots[guarantorBot], guaranteedCaller: true };
 
   const hands = {};
   ALL_PIDS.forEach((pid, i) => {
