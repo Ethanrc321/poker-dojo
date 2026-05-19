@@ -80,7 +80,7 @@ function NotePanel({ title, children }) {
 export default function ChartsScreen() {
   const insets = useSafeAreaInsets();
   const [view,   setView]   = useState('rfi');
-  const [rfiPos, setRfiPos] = useState('BTN');
+  const [rfiPos, setRfiPos] = useState('UTG');
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
