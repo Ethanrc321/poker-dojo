@@ -5,7 +5,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold } from '@expo-google-fonts/dm-sans';
 
 import DashboardScreen from './src/screens/DashboardScreen.js';
-import PlayScreen      from './src/screens/PlayScreen.js';
 import PreflopScreen   from './src/screens/PreflopScreen.js';
 import PostflopScreen  from './src/screens/PostflopScreen.js';
 import MathScreen      from './src/screens/MathScreen.js';
@@ -20,12 +19,10 @@ const INITIAL_STATS = {
   postflop: { total: 0, correct: 0 },
   math:     { total: 0, correct: 0 },
   quiz:     { total: 0, correct: 0 },
-  play:     { total: 0, correct: 0 },
 };
 
 const TABS = [
   { id: 'Home',     label: 'Home',     icon: 'home-outline'          },
-  { id: 'Play',     label: 'Play',     icon: 'play-circle-outline'   },
   { id: 'Preflop',  label: 'Preflop',  icon: 'hand-left-outline'     },
   { id: 'Postflop', label: 'Postflop', icon: 'layers-outline'        },
   { id: 'Math',     label: 'Math',     icon: 'calculator-outline'    },
@@ -69,36 +66,36 @@ export default function App() {
 
   if (!fontsLoaded) return null;
 
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case 'Home':
-        return <DashboardScreen stats={stats} resetStats={resetStats} onNavigate={setCurrentScreen} />;
-      case 'Play':
-        return <PlayScreen recordResult={(d) => recordResult('play', d)} />;
-      case 'Preflop':
-        return <PreflopScreen recordResult={(d) => recordResult('preflop', d)} />;
-      case 'Postflop':
-        return <PostflopScreen recordResult={(d) => recordResult('postflop', d)} />;
-      case 'Math':
-        return <MathScreen recordResult={(d) => recordResult('math', d)} />;
-      case 'Charts':
-        return <ChartsScreen />;
-      case 'Reading':
-        return <ReadingScreen recordResult={(d) => recordResult('quiz', d)} />;
-      case 'Glossary':
-        return <GlossaryScreen />;
-      default:
-        return <DashboardScreen stats={stats} resetStats={resetStats} />;
-    }
-  };
+  // Keep every screen mounted so local state (streak, session %, drill position) survives
+  // tab switches. Only the active screen is visible; the rest are display:'none'.
+  const show = id => ({ flex: 1, display: currentScreen === id ? 'flex' : 'none' });
 
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       <View style={styles.root}>
-        {/* Active screen — paddingBottom keeps content clear of trigger */}
         <View style={styles.screenWrap}>
-          {renderScreen()}
+          <View style={show('Home')}>
+            <DashboardScreen stats={stats} resetStats={resetStats} onNavigate={setCurrentScreen} />
+          </View>
+          <View style={show('Preflop')}>
+            <PreflopScreen recordResult={(d) => recordResult('preflop', d)} />
+          </View>
+          <View style={show('Postflop')}>
+            <PostflopScreen recordResult={(d) => recordResult('postflop', d)} />
+          </View>
+          <View style={show('Math')}>
+            <MathScreen recordResult={(d) => recordResult('math', d)} />
+          </View>
+          <View style={show('Charts')}>
+            <ChartsScreen />
+          </View>
+          <View style={show('Reading')}>
+            <ReadingScreen recordResult={(d) => recordResult('quiz', d)} />
+          </View>
+          <View style={show('Glossary')}>
+            <GlossaryScreen />
+          </View>
         </View>
 
         {/* Radial spade menu — absolutely positioned overlay */}

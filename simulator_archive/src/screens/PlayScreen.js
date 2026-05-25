@@ -22,6 +22,24 @@ const PERSONA_RING = { TAG:'#5577E0', CALLER:'#8068E8', LAG:'#E04545', NIT:'#9ca
 
 const n1 = x => Math.round(x * 10) / 10;
 
+// Build side pots from per-player committed totals.
+// allPIDs: every seat that put money in (includes folded); activePlayers: who can win.
+function buildSidePots(allPIDs, activePlayers, committed) {
+  const rem = {};
+  allPIDs.forEach(p => { if ((committed[p] || 0) > 0) rem[p] = committed[p]; });
+  const pots = [];
+  while (Object.keys(rem).length > 0) {
+    const players = Object.keys(rem);
+    const min = Math.min(...players.map(p => rem[p]));
+    const total = n1(min * players.length);
+    const eligible = players.filter(p => activePlayers.includes(p));
+    // If no active player is in this tier (all folded/invalid), award to all remaining actives
+    pots.push({ amount: total, eligible: eligible.length > 0 ? eligible : [...activePlayers] });
+    players.forEach(p => { rem[p] = n1(rem[p] - min); if (rem[p] <= 0) delete rem[p]; });
+  }
+  return pots;
+}
+
 // Quick playability score for the player's hole cards (higher = more playable).
 // Used only to bias dealing — not for strategy decisions.
 function playerHandScore(c1, c2) {
@@ -86,11 +104,13 @@ function buildHand(hc, prevStacks) {
   ns[bbP] = n1(stacks[bbP] - 1.0);
   const sb = Object.fromEntries(ALL_PIDS.map(p => [p, 0]));
   sb[sbP] = 0.5; sb[bbP] = 1.0;
+  const committed = Object.fromEntries(ALL_PIDS.map(p => [p, 0]));
+  committed[sbP] = 0.5; committed[bbP] = 1.0;
   const streetOrder = PREFLOP_ORD.map(p => ALL_PIDS.find(pid => pos[pid] === p));
   return {
     phase: 'preflop', deck: deck.slice(12), hands, community: [],
     positions: pos, bots, stacks: ns, pot: 1.5,
-    streetBets: sb, currentBetLevel: 1.0,
+    streetBets: sb, currentBetLevel: 1.0, committed,
     activePlayers: [...ALL_PIDS], streetOrder,
     toAct: [...streetOrder], currentActor: streetOrder[0],
     raisedPot: false, playerIsAggressor: false,
@@ -104,6 +124,7 @@ function applyAction(gs, actor, action, amount) {
   let nPot = pot, nSt = { ...stacks }, nBets = { ...streetBets };
   let nToAct = [...toAct], nAct = [...activePlayers];
   let newLvl = currentBetLevel, newRaised = gs.raisedPot, logMsg = '';
+  let nCommitted = { ...(gs.committed || {}) };
   const name = actor === 'player' ? 'You' : gs.bots[actor]?.name;
   const v = actor !== 'player' ? 's' : '';
   if (action === 'fold') {
@@ -118,6 +139,7 @@ function applyAction(gs, actor, action, amount) {
     nSt[actor] = n1(stacks[actor] - amt);
     nBets[actor] = n1((streetBets[actor] || 0) + amt);
     nPot = n1(pot + amt);
+    nCommitted[actor] = n1((nCommitted[actor] || 0) + amt);
     nToAct = nToAct.filter(p => p !== actor);
     logMsg = `${name} call${v} ${amt}bb`;
   } else if (action === 'raise' || action === 'bet') {
@@ -125,12 +147,14 @@ function applyAction(gs, actor, action, amount) {
     nSt[actor] = n1(stacks[actor] - add);
     nBets[actor] = amount;
     nPot = n1(pot + add);
+    nCommitted[actor] = n1((nCommitted[actor] || 0) + add);
     newLvl = amount; newRaised = true;
     nToAct = streetOrder.filter(p => p !== actor && nAct.includes(p));
     logMsg = `${name} raise${v} to ${amount}bb`;
   } else if (action === 'allin') {
     const all = stacks[actor], total = n1((streetBets[actor] || 0) + all);
     nSt[actor] = 0; nBets[actor] = total; nPot = n1(pot + all);
+    nCommitted[actor] = n1((nCommitted[actor] || 0) + all);
     if (total > newLvl) {
       newLvl = total; newRaised = true;
       nToAct = streetOrder.filter(p => p !== actor && nAct.includes(p));
@@ -142,7 +166,7 @@ function applyAction(gs, actor, action, amount) {
   return {
     ...gs, pot: nPot, stacks: nSt, streetBets: nBets, currentBetLevel: newLvl,
     activePlayers: nAct, toAct: nToAct, currentActor: nToAct[0] || null,
-    raisedPot: newRaised, log: [...gs.log, logMsg],
+    raisedPot: newRaised, committed: nCommitted, log: [...gs.log, logMsg],
   };
 }
 
@@ -156,28 +180,44 @@ function nextStreet(gs) {
   }
   const np = { preflop:'flop', flop:'turn', turn:'river', river:'showdown' }[phase];
   if (np === 'showdown') {
-    const results = activePlayers
-      .map(pid => ({ pid, best: getBestHand(hands[pid], community) }))
-      .sort((a, b) => (b.best?.score || 0) - (a.best?.score || 0));
-    const w = results[0].pid;
-    const wn = w === 'player' ? 'You' : bots[w]?.name;
-    const sdLog = results.map(r => {
-      const n = r.pid === 'player' ? 'You' : bots[r.pid]?.name;
-      return `${n}: ${hands[r.pid].map(c => c.rank + c.suit).join('')}  (${r.best?.desc || '?'})`;
+    // Build side pots so all-in players can only win up to what they put in
+    const sidePots = buildSidePots(ALL_PIDS, activePlayers, gs.committed || {});
+    const handRanks = {};
+    activePlayers.forEach(pid => { handRanks[pid] = getBestHand(hands[pid], community); });
+    const rankOf = pid => handRanks[pid]?.score || 0;
+    const sdLog = ['--- SHOWDOWN ---'];
+    activePlayers.forEach(pid => {
+      const n = pid === 'player' ? 'You' : bots[pid]?.name;
+      sdLog.push(`${n}: ${hands[pid].map(c => c.rank + c.suit).join('')}  (${handRanks[pid]?.desc || '?'})`);
     });
-    return { ...gs, phase:'showdown', stacks:{ ...stacks, [w]: n1(stacks[w] + pot) }, pot:0, handOver:true, showdown:true, log:[...gs.log,'--- SHOWDOWN ---',...sdLog,`${wn} wins!`] };
+    let nStacks = { ...stacks };
+    sidePots.forEach((sp, idx) => {
+      const winner = [...sp.eligible].sort((a, b) => rankOf(b) - rankOf(a))[0];
+      nStacks[winner] = n1(nStacks[winner] + sp.amount);
+      const wn = winner === 'player' ? 'You' : bots[winner]?.name;
+      const lbl = sidePots.length > 1 ? (idx === 0 ? ' (main)' : ' (side)') : '';
+      sdLog.push(`${wn} wins ${sp.amount}bb${lbl}!`);
+    });
+    return { ...gs, phase:'showdown', stacks:nStacks, pot:0, handOver:true, showdown:true, log:[...gs.log, ...sdLog] };
   }
   let nd = [...deck], nc = [...community];
   for (let i = 0; i < (np === 'flop' ? 3 : 1); i++) nc.push(nd.shift());
   const pfo = POSTFLOP_ORD
     .map(p => ALL_PIDS.find(pid => positions[pid] === p))
     .filter(p => p && activePlayers.includes(p));
-  return {
+  // Only players who still have chips behind can bet; if ≤1 has chips, skip betting
+  const canBet = pfo.filter(p => stacks[p] > 0);
+  const newToAct = canBet.length > 1 ? [...canBet] : [];
+  const newGs = {
     ...gs, phase: np, deck: nd, community: nc,
     streetBets: Object.fromEntries(ALL_PIDS.map(p => [p, 0])),
-    currentBetLevel: 0, streetOrder: pfo, toAct: [...pfo], currentActor: pfo[0] || null,
+    currentBetLevel: 0, streetOrder: canBet,
+    toAct: newToAct, currentActor: newToAct[0] || null,
     log: [...gs.log, `--- ${np.toUpperCase()} ---`],
   };
+  // All-in runout: no bets possible — auto-deal the next street immediately
+  if (newToAct.length === 0) return nextStreet(newGs);
+  return newGs;
 }
 
 const QUALITY_COLORS = {
@@ -359,7 +399,7 @@ export default function PlayScreen({ recordResult }) {
     showCoach, coaching, handOver, showdown, log } = gs;
 
   const callAmt   = n1(Math.max(0, currentBetLevel - (streetBets.player || 0)));
-  const isMyTurn  = currentActor === 'player' && !showCoach && !handOver && activePlayers.includes('player');
+  const isMyTurn  = currentActor === 'player' && !showCoach && !handOver && activePlayers.includes('player') && stacks.player > 0;
   const canCheck  = callAmt === 0;
   const isLimp    = phase === 'preflop' && heroPos === 'SB' && !gs.raisedPot && callAmt > 0 && callAmt <= 0.5;
   const maxRaise  = n1(stacks.player + (streetBets.player || 0));

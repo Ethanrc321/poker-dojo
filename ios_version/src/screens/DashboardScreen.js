@@ -8,7 +8,6 @@ import { C, POS_COLOR, T, Colors, Space, Radius, Fonts, Size } from '../theme.js
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const NAV_ITEMS = [
-  { id: 'Play',     label: 'Simulator',  icon: 'play-circle-outline', stat: 'play'     },
   { id: 'Preflop',  label: 'Preflop',    icon: 'aces',                 stat: 'preflop'  },
   { id: 'Postflop', label: 'Postflop',   icon: 'layers-outline',       stat: 'postflop' },
   { id: 'Math',     label: 'Math',       icon: 'calculator-outline',   stat: 'math'     },
@@ -21,7 +20,6 @@ const MODULES = [
   { key: 'postflop', label: 'Postflop Trainer' },
   { key: 'math',     label: 'Math Drills'      },
   { key: 'quiz',     label: 'Hand Reading'     },
-  { key: 'play',     label: 'Hand Simulator'   },
 ];
 
 function pct(correct, total) {

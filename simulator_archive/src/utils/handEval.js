@@ -176,14 +176,28 @@ export function relativeStrength(holeCards, community) {
     const boardVals = community.map(c => RANK_VAL[c.rank]);
     const maxBoard = Math.max(...boardVals);
     const holeVals = holeCards.map(c => RANK_VAL[c.rank]);
-    const pairVal = Object.entries(
-      [...holeCards, ...community].reduce((cnt, c) => {
-        const v = RANK_VAL[c.rank]; cnt[v] = (cnt[v] || 0) + 1; return cnt;
-      }, {})
-    ).find(([, c]) => c === 2)?.[0];
+    const allCnt = [...holeCards, ...community].reduce((cnt, c) => {
+      const v = RANK_VAL[c.rank]; cnt[v] = (cnt[v] || 0) + 1; return cnt;
+    }, {});
+    const pairVal = Object.entries(allCnt).find(([, c]) => c === 2)?.[0];
 
     if (!pairVal) return 'medium';
     const pv = +pairVal;
+
+    // ── Board-pair detection ─────────────────────────────────────────────────
+    // If the board itself supplies both copies of the pair (player holds neither),
+    // then EVERYONE at the table has this "pair" — it is not a real hand advantage.
+    // The player is purely in a kicker battle; classify accordingly.
+    const boardCopies = boardVals.filter(v => v === pv).length;
+    const holeCopies  = holeVals.filter(v => v === pv).length;
+    if (boardCopies >= 2 && holeCopies === 0) {
+      const kicker = Math.max(...holeVals);
+      if (kicker >= 13) return 'board_pair_top_kicker'; // A or K — can win kicker battles
+      if (kicker >= 10) return 'board_pair_mid_kicker'; // T–Q — often chopped or losing
+      return 'board_pair_no_kicker';                    // 9 or below — effectively air
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const myKicker = holeVals.filter(v => v !== pv).sort((a, b) => b - a)[0] || 0;
 
     if (pv === maxBoard) return myKicker >= 12 ? 'tptk' : myKicker >= 9 ? 'tpgk' : 'tp_weak';
