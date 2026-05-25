@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useStamina, MAX_STAMINA, formatRefillTime } from '../utils/stamina.js';
+import { useSubscription } from '../context/SubscriptionContext.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Card from '../components/Card.js';
 import {
@@ -70,6 +73,9 @@ function getFeedbackFromEval(evalRes) {
 
 export default function PreflopScreen({ recordResult }) {
   const insets = useSafeAreaInsets();
+  const { isSubscribed } = useSubscription();
+  const { stamina, isEmpty, msUntilRefill, loaded, decrement, refillFromAd } = useStamina();
+
   const [mode,          setMode]          = useState('rfi');
   const [selectedPos,   setSelectedPos]   = useState(null);
   const [currentPos,    setCurrentPos]    = useState('BTN');
@@ -114,6 +120,7 @@ export default function PreflopScreen({ recordResult }) {
     setSessionStats(prev => ({ total: prev.total + 1, correct: prev.correct + (isCorrect ? 1 : 0) }));
     setStreak(prev => isCorrect ? prev + 1 : 0);
     recordResult({ correct: isCorrect, position: currentPos });
+    if (!isSubscribed) decrement();
   }
 
   const evLoss  = (userAction && currentPos === 'SB') ? getEVLoss(correctAction, userAction) : null;
@@ -135,6 +142,35 @@ export default function PreflopScreen({ recordResult }) {
               : 'vs. Raise — Fold, Call, or 3-Bet.'}
           </Text>
         </View>
+          <View style={styles.staminaCenter}>
+          {!isSubscribed && loaded && (
+              <View style={[
+                styles.staminaPill,
+                {
+                  backgroundColor: isEmpty
+                    ? 'rgba(224,69,69,0.12)'
+                    : stamina <= 5
+                      ? 'rgba(232,160,48,0.12)'
+                      : 'rgba(104,168,112,0.10)',
+                  borderColor: isEmpty
+                    ? 'rgba(224,69,69,0.35)'
+                    : stamina <= 5
+                      ? 'rgba(232,160,48,0.35)'
+                      : 'rgba(104,168,112,0.30)',
+                },
+              ]}>
+                <Text style={[styles.staminaIcon, {
+                  color: isEmpty ? C.red : stamina <= 5 ? C.amber : C.green,
+                }]}>⚡</Text>
+                <Text style={[styles.staminaText, {
+                  color: isEmpty ? C.red : stamina <= 5 ? C.amber : Colors.textSecondary,
+                }]}>
+                  {stamina}/{MAX_STAMINA}
+                </Text>
+              </View>
+          )}
+          </View>
+
         <View style={styles.headerRight}>
           {pct !== null && (
             <Text style={[styles.pct, { color: pct >= 80 ? C.green : pct >= 60 ? C.amber : C.red }]}>
@@ -162,7 +198,7 @@ export default function PreflopScreen({ recordResult }) {
       </View>
 
       {mode === 'vsraise' ? (
-        <VsRaiseTrainer recordResult={recordResult} />
+        <VsRaiseTrainer recordResult={recordResult} isSubscribed={isSubscribed} decrement={decrement} />
       ) : (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
@@ -296,11 +332,32 @@ export default function PreflopScreen({ recordResult }) {
         </View>
       )}
 
-      {/* Next button */}
+      {/* Next button / stamina wall */}
       {userAction !== null && (
-        <TouchableOpacity onPress={drawHand} style={styles.nextBtn} activeOpacity={0.85}>
-          <Text style={styles.nextBtnText}>Next Hand →</Text>
-        </TouchableOpacity>
+        !isSubscribed && isEmpty ? (
+          <View style={styles.staminaWall}>
+            <Text style={styles.staminaWallTitle}>⚡ Out of Stamina</Text>
+            <Text style={styles.staminaWallDesc}>
+              {msUntilRefill > 0
+                ? `Auto-refill in ${formatRefillTime(msUntilRefill)} — come back later or watch an ad to continue now.`
+                : 'Your stamina has refilled!'}
+            </Text>
+            {msUntilRefill > 0 ? (
+              <TouchableOpacity style={styles.adBtn} onPress={refillFromAd} activeOpacity={0.85}>
+                <Ionicons name="film-outline" size={18} color="#000" />
+                <Text style={styles.adBtnText}>Refill</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={drawHand} style={styles.nextBtn} activeOpacity={0.85}>
+                <Text style={styles.nextBtnText}>Continue →</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <TouchableOpacity onPress={drawHand} style={styles.nextBtn} activeOpacity={0.85}>
+            <Text style={styles.nextBtnText}>Next Hand →</Text>
+          </TouchableOpacity>
+        )
       )}
 
       {/* Quick reference */}
@@ -346,10 +403,11 @@ export default function PreflopScreen({ recordResult }) {
 const styles = StyleSheet.create({
   container:        { flex: 1, backgroundColor: Colors.bg1 },
   content:          { paddingHorizontal: Space.base },
-  header:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: Space.base, paddingTop: Space.lg, marginBottom: Space.base },
-  title:            { ...T.screenTitle },
-  subtitle:         { ...T.subtitle, marginTop: Space.xxs },
-  headerRight:      { alignItems: 'flex-end' },
+  header:        { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: Space.base, paddingTop: Space.lg, marginBottom: Space.base },
+  title:         { ...T.screenTitle },
+  subtitle:      { ...T.subtitle, marginTop: Space.xxs, flex: 1 },
+  staminaCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 2 },
+  headerRight:   { alignItems: 'flex-end', justifyContent: 'flex-start' },
   pct:              { fontFamily: Fonts.semibold, fontSize: Size.md, fontVariant: ['tabular-nums'] },
   streak:           { fontFamily: Fonts.regular, fontSize: Size.xs, color: C.amber, marginTop: 2 },
   modeRow:          { flexDirection: 'row', gap: Space.xs, paddingHorizontal: Space.base, marginBottom: Space.sm },
@@ -392,4 +450,14 @@ const styles = StyleSheet.create({
   quickRef:         { backgroundColor: Colors.bg2, borderRadius: Radius.md, padding: Space.sm, marginBottom: Space.base, gap: Space.xxs + 2 },
   quickRefTitle:    { fontFamily: Fonts.semibold, fontSize: Size.xs, color: Colors.textSecondary, marginBottom: Space.xxs },
   quickRefLine:     { fontFamily: Fonts.regular, fontSize: Size.xs, lineHeight: Size.xs * 1.5 },
+
+  // Stamina
+  staminaPill:      { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1 },
+  staminaIcon:      { fontSize: 15 },
+  staminaText:      { fontFamily: Fonts.semibold, fontSize: Size.sm, fontVariant: ['tabular-nums'] },
+  staminaWall:      { backgroundColor: Colors.bg2, borderRadius: Radius.lg, padding: Space.base, borderWidth: 1, borderColor: 'rgba(224,69,69,0.3)', marginBottom: Space.base, alignItems: 'center', gap: Space.sm },
+  staminaWallTitle: { fontFamily: Fonts.semibold, fontSize: Size.base, color: C.red },
+  staminaWallDesc:  { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textSecondary, textAlign: 'center', lineHeight: Size.xs * 1.5 },
+  adBtn:            { width: '100%', paddingVertical: 14, borderRadius: Radius.lg, backgroundColor: C.amber, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  adBtnText:        { fontFamily: Fonts.semibold, fontSize: Size.base, color: '#000' },
 });

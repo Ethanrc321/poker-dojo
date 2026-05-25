@@ -1,25 +1,29 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AcesIcon from '../components/AcesIcon.js';
+import { useSubscription } from '../context/SubscriptionContext.js';
 import { C, POS_COLOR, T, Colors, Space, Radius, Fonts, Size } from '../theme.js';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const NAV_ITEMS = [
-  { id: 'Preflop',  label: 'Preflop',    icon: 'aces',                 stat: 'preflop'  },
-  { id: 'Postflop', label: 'Postflop',   icon: 'layers-outline',       stat: 'postflop' },
-  { id: 'Math',     label: 'Math',       icon: 'calculator-outline',   stat: 'math'     },
-  { id: 'Reading',  label: 'Reading',    icon: 'eye-outline',          stat: 'quiz'     },
-  { id: 'Charts',   label: 'Charts',     icon: 'stats-chart-outline',  stat: null, noStat: true },
+  { id: 'Preflop',  label: 'Preflop',    icon: 'aces',                stat: 'preflop'                    },
+  { id: 'Postflop', label: 'Postflop',   icon: 'layers-outline',      stat: 'postflop', locked: true      },
+  { id: 'Math',     label: 'Math',       icon: 'calculator-outline',  stat: 'math',     locked: true      },
+  { id: 'Reading',  label: 'Reading',    icon: 'eye-outline',         stat: 'quiz',     locked: true      },
+  { id: 'Charts',   label: 'Charts',     icon: 'stats-chart-outline', stat: null,       noStat: true      },
+  { id: 'Glossary', label: 'Glossary',   icon: 'school-outline',      stat: null,       noStat: true, locked: true },
 ];
 
 const MODULES = [
-  { key: 'preflop',  label: 'Preflop Trainer'  },
-  { key: 'postflop', label: 'Postflop Trainer' },
-  { key: 'math',     label: 'Math Drills'      },
-  { key: 'quiz',     label: 'Hand Reading'     },
+  { key: 'preflop',  label: 'Preflop Trainer',  locked: false },
+  { key: 'postflop', label: 'Postflop Trainer', locked: true  },
+  { key: 'math',     label: 'Math Drills',       locked: true  },
+  { key: 'quiz',     label: 'Hand Reading',      locked: true  },
+  { key: null,       label: 'Charts',            locked: false },
+  { key: null,       label: 'Glossary',          locked: true  },
 ];
 
 function pct(correct, total) {
@@ -38,6 +42,7 @@ function perfLabel(p) {
 
 export default function DashboardScreen({ stats, resetStats, onNavigate }) {
   const insets = useSafeAreaInsets();
+  const { isSubscribed } = useSubscription();
 
   const totalHands   = Object.values(stats).reduce((a, m) => a + (m.total   || 0), 0);
   const totalCorrect = Object.values(stats).reduce((a, m) => a + (m.correct || 0), 0);
@@ -63,13 +68,6 @@ export default function DashboardScreen({ stats, resetStats, onNavigate }) {
   const bestPos  = rankedPos[0]  || null;
   const worstPos = rankedPos[rankedPos.length - 1] || null;
 
-  function handleReset() {
-    Alert.alert('Reset Stats', 'Reset all stats? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: resetStats },
-    ]);
-  }
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* ── Header ─────────────────────────────────────────────── */}
@@ -78,11 +76,9 @@ export default function DashboardScreen({ stats, resetStats, onNavigate }) {
           <Text style={styles.title}>TAG Poker Trainer</Text>
           <Text style={styles.subtitle}>Tight-Aggressive · GTO-calibrated · 6-max</Text>
         </View>
-        {totalHands > 0 && (
-          <TouchableOpacity onPress={handleReset} style={styles.resetIcon}>
-            <Ionicons name="refresh-outline" size={20} color="#444" />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={() => onNavigate('Settings')} style={styles.gearIcon}>
+          <Ionicons name="settings-outline" size={20} color="#444" />
+        </TouchableOpacity>
       </View>
       <ScrollView
         style={{ flex: 1 }}
@@ -98,26 +94,36 @@ export default function DashboardScreen({ stats, resetStats, onNavigate }) {
             const s    = item.stat ? stats[item.stat] : null;
             const p    = s ? pct(s.correct, s.total) : null;
             const col  = p !== null ? perfColor(p) : '#555';
+            const showLock = item.locked && !isSubscribed;
             return (
               <TouchableOpacity
                 key={item.id}
                 onPress={() => onNavigate(item.id)}
-                style={[styles.navCell, item.noStat && styles.navCellCentered]}
+                style={[styles.navCell, item.noStat && styles.navCellCentered, showLock && styles.navCellLocked]}
                 activeOpacity={0.7}
               >
                 <View style={styles.navIconWrap}>
                   {item.icon === 'aces'
-                    ? <AcesIcon size={22} color="#fff" bgColor={C.bg3} />
-                    : <Ionicons name={item.icon} size={22} color="#fff" />
+                    ? <AcesIcon size={22} color={showLock ? '#666' : '#fff'} bgColor={C.bg3} />
+                    : <Ionicons name={item.icon} size={22} color={showLock ? '#666' : '#fff'} />
                   }
-                  {p !== null && (
+                  {p !== null && !showLock && (
                     <View style={[styles.navBadge, { backgroundColor: col }]} />
                   )}
                 </View>
-                <Text style={styles.navLabel}>{item.label}</Text>
-                {!item.noStat && (p !== null
+                <Text style={[styles.navLabel, showLock && styles.navLabelLocked]}>{item.label}</Text>
+                {!item.noStat && !showLock && (p !== null
                   ? <Text style={[styles.navStat, { color: col }]}>{p}%</Text>
                   : <Text style={styles.navStatEmpty}>—</Text>
+                )}
+
+                {/* Lock overlay */}
+                {showLock && (
+                  <View style={styles.lockOverlay} pointerEvents="none">
+                    <View style={styles.lockBadge}>
+                      <Ionicons name="lock-closed" size={11} color={C.amber} />
+                    </View>
+                  </View>
                 )}
               </TouchableOpacity>
             );
@@ -158,29 +164,50 @@ export default function DashboardScreen({ stats, resetStats, onNavigate }) {
       )}
 
       {/* ── Module Breakdown ────────────────────────────────────── */}
-      {rankedModules.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>MODULE BREAKDOWN</Text>
-          <View style={styles.panel}>
-            {MODULES.map(({ key, label }) => {
-              const s = stats[key];
-              if (!s || s.total === 0) return null;
-              const p = pct(s.correct, s.total);
-              const col = perfColor(p);
-              return (
-                <View key={key} style={styles.moduleRow}>
-                  <Text style={styles.moduleRowLabel}>{label}</Text>
-                  <View style={styles.moduleBarTrack}>
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>MODULE BREAKDOWN</Text>
+        <View style={styles.panel}>
+          {MODULES.map(({ key, label, locked }) => {
+            const showLock = locked && !isSubscribed;
+            const s   = key ? stats[key] : null;
+            const hasData = !!(s && s.total > 0);
+
+            // Free modules with no data yet — hide until first use
+            if (!showLock && !hasData) return null;
+
+            const p   = hasData ? pct(s.correct, s.total) : null;
+            const col = p !== null ? perfColor(p) : '#555';
+
+            return (
+              <View key={label} style={[styles.moduleRow, showLock && styles.moduleRowLocked]}>
+                {/* Label */}
+                <Text style={[styles.moduleRowLabel, showLock && styles.moduleRowLabelLocked]}>
+                  {label}
+                </Text>
+
+                {/* Progress bar */}
+                <View style={styles.moduleBarTrack}>
+                  {!showLock && hasData && (
                     <View style={[styles.moduleBarFill, { width: `${p}%`, backgroundColor: col }]} />
-                  </View>
-                  <Text style={[styles.moduleRowPct, { color: col }]}>{p}%</Text>
-                  <Text style={styles.moduleRowCount}>({s.total})</Text>
+                  )}
+                  {showLock && (
+                    <View style={styles.moduleBarLocked} />
+                  )}
                 </View>
-              );
-            }).filter(Boolean)}
-          </View>
+
+                {/* Right side: % or lock */}
+                {showLock ? (
+                  <View style={styles.moduleLockWrap}>
+                    <Ionicons name="lock-closed" size={10} color={C.amber} />
+                  </View>
+                ) : hasData ? (
+                  <Text style={[styles.moduleRowPct, { color: col }]}>{p}%</Text>
+                ) : null}
+              </View>
+            );
+          }).filter(Boolean)}
         </View>
-      )}
+      </View>
 
       {/* ── Preflop by Position ─────────────────────────────────── */}
       {rankedPos.length > 0 && (
@@ -194,7 +221,11 @@ export default function DashboardScreen({ stats, resetStats, onNavigate }) {
               return (
                 <View key={pos} style={[styles.posCell, { backgroundColor: pc.bg + '55', borderColor: pc.bg }]}>
                   <Text style={[styles.posCellPos, { color: pc.text }]}>{pos}</Text>
-                  <Text style={[styles.posCellPct, { color: p !== null ? perfColor(p) : '#333' }]}>
+                  <Text
+                    style={[styles.posCellPct, { color: p !== null ? perfColor(p) : '#333' }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
                     {p !== null ? `${p}%` : '—'}
                   </Text>
                   <Text style={styles.posCellCount}>{d?.total ?? 0} hands</Text>
@@ -282,7 +313,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: Space.base, paddingTop: Space.lg, marginBottom: Space.md },
   title:    { ...T.screenTitle },
   subtitle: { ...T.subtitle, marginTop: Space.xxs },
-  resetIcon: { padding: Space.xxs, marginTop: Space.xxs },
+  gearIcon: { padding: Space.xxs, marginTop: Space.xxs },
 
   sectionLabel: { ...T.sectionLabel, marginBottom: Space.sm },
   section: { marginBottom: Space.lg },
@@ -302,9 +333,26 @@ const styles = StyleSheet.create({
   navCellCentered: { justifyContent: 'center' },
   navIconWrap:  { position: 'relative', width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   navBadge:     { position: 'absolute', top: 0, right: 0, width: 7, height: 7, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.bg1 },
-  navLabel:     { fontFamily: Fonts.medium, fontSize: Size.xs, color: Colors.textSecondary, textAlign: 'center' },
-  navStat:      { fontFamily: Fonts.semibold, fontSize: Size.xs, fontVariant: ['tabular-nums'] },
-  navStatEmpty: { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textTertiary },
+  navLabel:      { fontFamily: Fonts.medium, fontSize: Size.xs, color: Colors.textSecondary, textAlign: 'center' },
+  navLabelLocked:{ color: '#444' },
+  navStat:       { fontFamily: Fonts.semibold, fontSize: Size.xs, fontVariant: ['tabular-nums'] },
+  navStatEmpty:  { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textTertiary },
+  navCellLocked: { borderColor: 'rgba(232,160,48,0.18)' },
+
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,10,12,0.52)',
+    borderRadius: Radius.md,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    padding: 5,
+  },
+  lockBadge: {
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: 'rgba(232,160,48,0.15)',
+    borderWidth: 1, borderColor: 'rgba(232,160,48,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   overallRow:  { flexDirection: 'row', gap: Space.sm },
   overallMain: {
@@ -321,12 +369,16 @@ const styles = StyleSheet.create({
   overallStatLabel: { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textSecondary },
 
   panel:          { backgroundColor: Colors.bg2, borderRadius: Radius.lg, padding: Space.base, gap: Space.sm },
-  moduleRow:      { flexDirection: 'row', alignItems: 'center', gap: Space.xs },
-  moduleRowLabel: { fontFamily: Fonts.regular, fontSize: Size.sm, color: Colors.textSecondary, width: 112 },
-  moduleBarTrack: { flex: 1, height: 4, backgroundColor: Colors.bg3, borderRadius: Radius.xs, overflow: 'hidden' },
-  moduleBarFill:  { height: '100%', borderRadius: Radius.xs },
-  moduleRowPct:   { fontFamily: Fonts.semibold, fontSize: Size.xs, width: 36, textAlign: 'right', fontVariant: ['tabular-nums'] },
-  moduleRowCount: { fontFamily: Fonts.regular, fontSize: Size.xxs, color: Colors.textTertiary, width: 34, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  moduleRow:           { flexDirection: 'row', alignItems: 'center', gap: Space.xs },
+  moduleRowLocked:     { opacity: 0.55 },
+  moduleRowLabel:      { fontFamily: Fonts.regular, fontSize: Size.sm, color: Colors.textSecondary, width: 112 },
+  moduleRowLabelLocked:{ color: '#555' },
+  moduleBarTrack:      { flex: 1, height: 4, backgroundColor: Colors.bg3, borderRadius: Radius.xs, overflow: 'hidden' },
+  moduleBarFill:       { height: '100%', borderRadius: Radius.xs },
+  moduleBarLocked:     { height: '100%', width: '35%', backgroundColor: 'rgba(232,160,48,0.2)', borderRadius: Radius.xs },
+  moduleRowPct:        { fontFamily: Fonts.semibold, fontSize: Size.xs, width: 36, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  moduleRowCount:      { fontFamily: Fonts.regular, fontSize: Size.xxs, color: Colors.textTertiary, width: 34, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  moduleLockWrap:      { width: 36, alignItems: 'center', justifyContent: 'center' },
 
   posGrid: { flexDirection: 'row', gap: Space.xxs + 2 },
   posCell: { flex: 1, borderRadius: Radius.sm, padding: Space.xs, alignItems: 'center', borderWidth: 1, gap: Space.xxs },

@@ -51,23 +51,32 @@ export default function SpadeMenu({ tabs, currentScreen, onNavigate }) {
     Animated.parallel([
       Animated.timing(overlayAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
       Animated.timing(rotateAnim,  { toValue: 1, duration: 280, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }),
-      Animated.stagger(35,
-        itemAnims.map(a => Animated.spring(a, { toValue: 1, tension: 90, friction: 9, useNativeDriver: true }))
+      Animated.stagger(28,
+        itemAnims.map(a => Animated.spring(a, { toValue: 1, tension: 110, friction: 10, useNativeDriver: true }))
       ),
     ]).start();
   }, []);
 
+  // Animated dismiss — used when tapping the overlay or trigger to close
   const close = useCallback(() => {
     setIsOpen(false);
     Animated.parallel([
-      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(rotateAnim,  { toValue: 0, duration: 220, easing: Easing.in(Easing.ease), useNativeDriver: true }),
-      Animated.stagger(25,
-        [...itemAnims].reverse().map(a =>
-          Animated.timing(a, { toValue: 0, duration: 160, easing: Easing.in(Easing.ease), useNativeDriver: true })
+      Animated.timing(overlayAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(rotateAnim,  { toValue: 0, duration: 150, easing: Easing.in(Easing.ease), useNativeDriver: true }),
+      Animated.parallel(
+        itemAnims.map(a =>
+          Animated.timing(a, { toValue: 0, duration: 120, easing: Easing.in(Easing.ease), useNativeDriver: true })
         )
       ),
     ]).start();
+  }, []);
+
+  // Instant dismiss — used when navigating so there's zero animation delay
+  const closeInstant = useCallback(() => {
+    setIsOpen(false);
+    overlayAnim.stopAnimation(); overlayAnim.setValue(0);
+    rotateAnim.stopAnimation();  rotateAnim.setValue(0);
+    itemAnims.forEach(a => { a.stopAnimation(); a.setValue(0); });
   }, []);
 
   const onTriggerPress = useCallback(() => {
@@ -118,7 +127,7 @@ export default function SpadeMenu({ tabs, currentScreen, onNavigate }) {
             ]}
           >
             <Pressable
-              onPress={() => { onNavigate(tab.id); close(); }}
+              onPressIn={() => { onNavigate(tab.id); closeInstant(); }}
               style={[styles.arcCircle, isActive && styles.arcCircleActive]}
               accessibilityLabel={tab.label}
               accessibilityRole="button"
@@ -150,7 +159,7 @@ export default function SpadeMenu({ tabs, currentScreen, onNavigate }) {
         ]}
       >
         <Pressable
-          onPress={onTriggerPress}
+          onPressIn={onTriggerPress}
           style={styles.trigger}
           accessibilityLabel={isOpen ? 'Close navigation menu' : 'Open navigation menu'}
           accessibilityRole="button"

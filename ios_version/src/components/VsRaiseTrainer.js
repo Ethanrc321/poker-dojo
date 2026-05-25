@@ -44,7 +44,7 @@ function parseHand(hand) {
   return [{ rank: r1, suit: s[0] }, { rank: r2, suit: s[1] !== s[0] ? s[1] : s[2] }];
 }
 
-export default function VsRaiseTrainer({ recordResult }) {
+export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }) {
   const [filterVillain, setFilterVillain] = useState(null);
   const [filterHero,    setFilterHero]    = useState(null);
   const [activeVillain, setActiveVillain] = useState(null);
@@ -103,6 +103,7 @@ export default function VsRaiseTrainer({ recordResult }) {
     const isCorrect = action === correctAction;
     setStats(s => ({ total: s.total + 1, correct: s.correct + (isCorrect ? 1 : 0) }));
     recordResult({ correct: isCorrect });
+    if (!isSubscribed) decrement();
   }
 
   const isCorrect = userAction !== null && userAction === correctAction;

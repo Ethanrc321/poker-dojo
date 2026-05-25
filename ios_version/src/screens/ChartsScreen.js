@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PaywallGate from '../components/PaywallGate.js';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HandMatrix from '../components/HandMatrix.js';
@@ -160,8 +161,9 @@ export default function ChartsScreen() {
           </View>
         )}
 
-        {/* ── Math Tables ────────────────────────────────────────── */}
+        {/* ── Math Tables (Premium) ──────────────────────────────── */}
         {view === 'math' && (
+          <PaywallGate feature="charts">
           <View style={styles.section}>
             <SimpleTable
               title="Pot Odds (Equity Needed to Call)"
@@ -244,6 +246,7 @@ export default function ChartsScreen() {
               ))}
             </View>
           </View>
+          </PaywallGate>
         )}
 
         <View style={{ height: 24 }} />
