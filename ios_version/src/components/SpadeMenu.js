@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Pressable, TouchableWithoutFeedback,
   StyleSheet, Dimensions, Animated, Easing,
@@ -11,7 +11,6 @@ import { C, Colors } from '../theme.js';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
-const ITEM_COUNT  = 8;
 const ARC_RADIUS  = 140;
 const TRIGGER_D   = 64;
 const TRIGGER_R   = TRIGGER_D / 2;
@@ -24,15 +23,13 @@ function polar(deg, r) {
   return { x: r * Math.cos(rad), y: r * Math.sin(rad) };
 }
 
-function buildArcPositions() {
-  return Array.from({ length: ITEM_COUNT }, (_, i) => {
-    const deg = 180 + (i * 180) / (ITEM_COUNT - 1);
+function buildArcPositions(count) {
+  return Array.from({ length: count }, (_, i) => {
+    const deg = 180 + (i * 180) / (count - 1);
     const { x, y } = polar(deg, ARC_RADIUS);
     return { tx: x, ty: y };
   });
 }
-
-const ARC_POSITIONS = buildArcPositions();
 
 export default function SpadeMenu({ tabs, currentScreen, onNavigate }) {
   const insets  = useSafeAreaInsets();
@@ -41,7 +38,10 @@ export default function SpadeMenu({ tabs, currentScreen, onNavigate }) {
   const cx = SCREEN_W / 2;
   const cy = SCREEN_H - insets.bottom - TRIGGER_R - BOTTOM_PAD;
 
-  const itemAnims   = useRef(Array.from({ length: ITEM_COUNT }, () => new Animated.Value(0))).current;
+  const itemCount   = tabs.length;
+  const arcPositions = useMemo(() => buildArcPositions(itemCount), [itemCount]);
+
+  const itemAnims   = useRef(Array.from({ length: itemCount }, () => new Animated.Value(0))).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim  = useRef(new Animated.Value(0)).current;
   const scaleAnim   = useRef(new Animated.Value(1)).current;
@@ -94,7 +94,7 @@ export default function SpadeMenu({ tabs, currentScreen, onNavigate }) {
       </Animated.View>
 
       {/* ── Arc items ───────────────────────────────────────────────────── */}
-      {ARC_POSITIONS.map((pos, i) => {
+      {arcPositions.map((pos, i) => {
         const tab      = tabs[i];
         if (!tab) return null;
         const anim     = itemAnims[i];
