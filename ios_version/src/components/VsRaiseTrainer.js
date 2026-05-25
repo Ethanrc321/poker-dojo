@@ -6,7 +6,14 @@ import {
   FACING_OPEN_RANGES, OPEN_SIZES, POS_FULL, HERO_POSITIONS_FOR,
   ALL_SCENARIOS, buildVsRaisePool, getVsRaiseExplanation,
 } from '../data/preflopActions.js';
+import { RANGES } from '../engine/gto-engine.js';
 import { C, Colors, Fonts, Size, Space, Radius, T, POS_COLOR } from '../theme.js';
+
+const GTO_KEY_MAP = {
+  BTN_CO: 'BTN_vs_CO',
+  SB_BTN: 'SB_vs_BTN',
+  BB_BTN: 'BB_vs_BTN',
+};
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const POS_ORDER = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
@@ -102,6 +109,11 @@ export default function VsRaiseTrainer({ recordResult }) {
   const pct       = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : null;
   const nickname  = currentHand ? getNickname(currentHand) : null;
   const ranges    = activeVillain && activeHero ? FACING_OPEN_RANGES[activeVillain]?.[activeHero] : null;
+
+  const gtoKey = GTO_KEY_MAP[`${activeHero}_${activeVillain}`] ?? null;
+  const gtoFreqs = gtoKey && currentHand
+    ? (RANGES.GTO_3BET_RANGES[gtoKey]?.[currentHand] ?? null)
+    : null;
 
   if (!currentHand) return null;
 
@@ -240,6 +252,16 @@ export default function VsRaiseTrainer({ recordResult }) {
           <Text style={styles.explanationText}>
             {getVsRaiseExplanation(currentHand, activeHero, activeVillain, correctAction)}
           </Text>
+          {gtoFreqs && (
+            <View style={styles.gtoFreqBox}>
+              <Text style={styles.gtoFreqTitle}>GTO Frequencies ({activeHero} vs {activeVillain})</Text>
+              <Text style={styles.gtoFreqLine}>
+                <Text style={{ color: C.green }}>3-Bet: </Text>{Math.round(gtoFreqs[0] * 100)}%{'  '}
+                <Text style={{ color: C.blue }}>Call: </Text>{Math.round(gtoFreqs[1] * 100)}%{'  '}
+                <Text style={{ color: '#888' }}>Fold: </Text>{Math.round((1 - gtoFreqs[0] - gtoFreqs[1]) * 100)}%
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -315,6 +337,10 @@ const styles = StyleSheet.create({
 
   nextBtn:     { paddingVertical: Space.base, borderRadius: Radius.lg, backgroundColor: Colors.bg2, alignItems: 'center', marginBottom: Space.sm },
   nextBtnText: { ...T.btnPrimary, color: Colors.textPrimary },
+
+  gtoFreqBox:   { backgroundColor: 'rgba(104,168,112,0.07)', borderRadius: Radius.sm, padding: Space.xs, borderWidth: 1, borderColor: 'rgba(104,168,112,0.2)' },
+  gtoFreqTitle: { fontFamily: Fonts.semibold, fontSize: Size.xxs, color: Colors.textTertiary, marginBottom: Space.xxs },
+  gtoFreqLine:  { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textSecondary },
 
   rangePanel:      { backgroundColor: Colors.bg2, borderRadius: Radius.md, padding: Space.sm, gap: Space.xxs + 2, borderWidth: 1, borderColor: Colors.borderSubtle },
   rangePanelTitle: { fontFamily: Fonts.semibold, fontSize: Size.xs, color: Colors.textTertiary, marginBottom: Space.xxs },

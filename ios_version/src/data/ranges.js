@@ -1,5 +1,6 @@
 // ============================================================
-// GTO Preflop Ranges — 6-max, 100bb, ~5% rake
+// GTO Preflop Ranges — 8-max, 100bb, ante in play
+// Source: PokerCoaching.com charts (same as pokerRanges.js canonical data)
 // ============================================================
 
 export const RANKS = ['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
@@ -33,71 +34,99 @@ const UTG_MIX = new Set([
   // No mix at UTG — pure raise or fold
 ]);
 
-// ── HJ (6-max simulator placeholder — to be updated with verified 8-max chart) ─
+// ── HJ  (21.3% — 282 combos, pure raise/fold, no mix) ────────
 const HJ_RAISE = new Set([
-  ...UTG_RAISE,
-  '55','44','33',
-  'A2s',
-  'K9s','K8s','K7s','K6s',
-  'Q9s','J9s',
-  '98s','87s','76s',
-  'KTo','QTo',
+  'AA','KK','QQ','JJ','TT','99','88','77','66','55','44','33','22',
+  'AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A4s','A3s','A2s',
+  'KQs','KJs','KTs','K9s','K8s',
+  'QJs','QTs','Q9s',
+  'JTs','J9s',
+  'T9s','T8s',
+  '98s','97s',
+  '87s',
+  '76s',
+  '65s',
+  '54s',
+  'AKo','AQo','AJo','ATo','KQo','KJo','QJo',
 ]);
 const HJ_MIX = new Set([
-  '22',
-  '65s','54s',
-  'K5s',
+  // No mix at HJ — pure raise or fold
 ]);
 
-// ── CO ───────────────────────────────────────────────────────
+// ── CO  (27.0% — 358 combos, pure raise/fold, no mix) ────────
 const CO_RAISE = new Set([
-  ...HJ_RAISE,
-  '22',
-  'K5s','K4s','K3s',
-  'Q8s','Q7s','Q6s',
-  'J8s',
-  'T8s','T7s',
-  '97s','96s',
-  '86s','85s',
-  '75s',
+  'AA','KK','QQ','JJ','TT','99','88','77','66','55','44','33','22',
+  'AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A4s','A3s','A2s',
+  'KQs','KJs','KTs','K9s','K8s','K7s',
+  'QJs','QTs','Q9s','Q8s',
+  'JTs','J9s','J8s',
+  'T9s','T8s',
+  '98s','97s',
+  '87s','86s',
+  '76s','75s',
   '65s','64s',
-  'A9o','A8o',
+  '54s','43s',
+  'AKo','AQo','AJo','ATo','A9o',
+  'KQo','KJo','KTo',
+  'QJo','QTo',
   'JTo',
 ]);
 const CO_MIX = new Set([
-  '53s','43s',
-  'K2s',
-  'Q5s',
+  // No mix at CO — pure raise or fold
 ]);
 
-// ── BTN ──────────────────────────────────────────────────────
+// ── BTN  (51.1% — 678 combos, pure raise/fold, no mix) ───────
 const BTN_RAISE = new Set([
-  ...CO_RAISE,
-  '53s','43s','K2s','Q5s',
-  'Q4s','Q3s','Q2s',
-  'J7s','J6s','J5s','J4s',
-  'T6s',
-  'A7o','A6o','A5o','A4o',
-  'K9o','K8o',
-  'Q9o',
-  'J9o',
-  'T8o',
-  '98o',
+  // All pairs
+  'AA','KK','QQ','JJ','TT','99','88','77','66','55','44','33','22',
+  // All suited aces
+  'AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A4s','A3s','A2s',
+  // All suited kings
+  'KQs','KJs','KTs','K9s','K8s','K7s','K6s','K5s','K4s','K3s','K2s',
+  // All suited queens
+  'QJs','QTs','Q9s','Q8s','Q7s','Q6s','Q5s','Q4s','Q3s','Q2s',
+  // Suited jacks J6s+
+  'JTs','J9s','J8s','J7s','J6s',
+  // Suited tens T6s+
+  'T9s','T8s','T7s','T6s',
+  // Suited nines 96s+
+  '98s','97s','96s',
+  // Suited eights 86s+
+  '87s','86s',
+  // Suited sevens 75s+
+  '76s','75s',
+  // Suited sixes 64s+
+  '65s','64s',
+  // Suited fives 53s+
+  '54s','53s',
+  // Suited fours
+  '43s',
+  // All offsuit aces
+  'AKo','AQo','AJo','ATo','A9o','A8o','A7o','A6o','A5o','A4o','A3o','A2o',
+  // Offsuit kings K4o+
+  'KQo','KJo','KTo','K9o','K8o','K7o','K6o','K5o','K4o',
+  // Offsuit queens Q8o+
+  'QJo','QTo','Q9o','Q8o',
+  // Offsuit jacks J8o+
+  'JTo','J9o','J8o',
+  // One-gap offsuit connectors
+  'T9o','98o','87o','76o',
 ]);
 const BTN_MIX = new Set([
-  '32s','74s','63s',
+  // No mix at BTN — pure raise or fold
 ]);
 
 // ── SB RFI (vs all folds, open to 3bb) ──────────────────────
+// SB uses a 4-action system (raise-value / raise-bluff / limp / fold)
+// These sets are kept for RFI_RANGES.SB reference; coach logic uses
+// getSBRFIAction() which reads SB_RAISE_VALUE/BLUFF/LIMP directly.
 const SB_RAISE = new Set([
-  ...BTN_RAISE,
-  'A3o','A2o',
-  'K7o','K6o',
-  '87o','76o',
-  '52s','42s',
+  'AA','KK','QQ','JJ','TT','99','88',
+  'AKs','AQs','AJs','ATs','KQs','KJs','QJs',
+  'AKo','AQo','AJo','ATo','KQo','KJo',
 ]);
 const SB_MIX = new Set([
-  '32s','74s','63s','53o','43o',
+  // No mix — SB uses 4-action raise_value/raise_bluff/limp/fold system
 ]);
 
 // ── BB Defense (call ranges, keyed by opener position) ───────
@@ -201,40 +230,79 @@ export const FOUR_BET_RANGES = {
 
 // ── SB RFI: 4-action strategy (raise value / raise bluff / limp / fold) ──
 export const SB_RAISE_VALUE = new Set([
-  'AA','KK','QQ','JJ','TT','99','88','77',
-  'AKs','AQs','AJs','ATs','KQs','KJs','QJs','JTs',
-  'AKo','AQo','AJo',
+  // Pairs AA–88
+  'AA','KK','QQ','JJ','TT','99','88',
+  // Suited
+  'AKs','AQs','AJs','ATs',
+  'KQs','KJs',
+  'QJs',
+  // Offsuit
+  'AKo','AQo','AJo','ATo',
+  'KQo','KJo',
 ]);
 
 export const SB_RAISE_BLUFF = new Set([
-  'A5s','A4s','A3s','A2s',
-  'K9s','K8s','K7s',
-  'Q9s','Q8s',
-  'J9s','J8s',
-  'T9s','T8s',
-  '98s','97s',
-  '87s','86s',
-  '76s','75s',
-  '65s','64s',
-  '54s',
-  'KTo','QTo','JTo',
-  'K9o','Q9o','T9o','98o',
+  // Suited — low Jacks, low Tens, mid-low connectors
+  'J4s','J3s','J2s',
+  'T5s','T4s',
+  '95s','94s',
+  '85s','84s',
+  '74s',
+  '63s',
+  '53s',
+  '43s',
+  // Offsuit — low gap hands / low Broadway blockers
+  'J6o',
+  'T6o',
+  '96o',
+  '86o',
+  'Q5o','Q4o','Q3o','Q2o',
+  'K3o','K2o',
 ]);
 
 export const SB_LIMP = new Set([
-  '66','55','44','33','22',
-  'A9s','A8s','A7s','A6s',
-  'KTs','K6s','K5s','K4s','K3s','K2s',
-  'QTs','Q7s','Q6s','Q5s','Q4s','Q3s','Q2s',
-  'J7s','J6s','J5s','J4s','J3s',
-  'T7s','T6s','T5s','T4s',
-  '96s','95s','85s','84s','74s','73s','63s','53s','43s','42s','32s',
-  'ATo','A9o','A8o','A7o','A6o','A5o','A4o','A3o','A2o',
-  'KQo','KJo','K8o','K7o','K6o',
-  'QJo','Q8o','Q7o',
-  'J8o','J7o',
-  'T8o','T7o',
-  '87o','76o',
+  // Pairs 77–22
+  '77','66','55','44','33','22',
+  // Suited aces A9s–A2s
+  'A9s','A8s','A7s','A6s','A5s','A4s','A3s','A2s',
+  // Suited kings KTs–K2s
+  'KTs','K9s','K8s','K7s','K6s','K5s','K4s','K3s','K2s',
+  // Suited queens QTs–Q2s
+  'QTs','Q9s','Q8s','Q7s','Q6s','Q5s','Q4s','Q3s','Q2s',
+  // Suited jacks JTs–J5s
+  'JTs','J9s','J8s','J7s','J6s','J5s',
+  // Suited tens T9s–T6s
+  'T9s','T8s','T7s','T6s',
+  // Suited nines 98s–96s
+  '98s','97s','96s',
+  // Suited eights 87s–86s
+  '87s','86s',
+  // Suited sevens 76s–75s
+  '76s','75s',
+  // Suited sixes 65s–64s
+  '65s','64s',
+  // Suited fives
+  '54s',
+  // Suited threes
+  '32s',
+  // Offsuit aces A9o–A2o
+  'A9o','A8o','A7o','A6o','A5o','A4o','A3o','A2o',
+  // Offsuit kings KTo–K4o
+  'KTo','K9o','K8o','K7o','K6o','K5o','K4o',
+  // Offsuit queens QJo–Q6o
+  'QJo','QTo','Q9o','Q8o','Q7o','Q6o',
+  // Offsuit jacks JTo–J7o
+  'JTo','J9o','J8o','J7o',
+  // Offsuit tens T9o–T7o
+  'T9o','T8o','T7o',
+  // Offsuit nines
+  '98o','97o',
+  // Offsuit eights
+  '87o',
+  // Offsuit sevens
+  '76o',
+  // Offsuit sixes
+  '65o',
 ]);
 
 export function getSBRFIAction(hand) {
@@ -422,9 +490,12 @@ export function buildTrainerPool(position, scenario = 'RFI') {
 function getInstructiveFolds(position) {
   const folds = {
     UTG: [
+      // Offsuit aces — too weak to open UTG
       'A2o','A3o','A4o','A5o','A6o','A7o','A8o','A9o',
+      // Offsuit broadways — dominated too often
       'K2o','K3o','K4o','K5o','K6o','K7o',
       'KTo','QTo','JTo',
+      // Weak suited hands
       'K5s','K4s','K3s','K2s',
       'Q8s','Q7s','Q6s','Q5s',
       'J8s','J7s',
@@ -433,39 +504,52 @@ function getInstructiveFolds(position) {
       '76o','65o','54o',
     ],
     HJ: [
-      'A2o','A3o','A4o','A5o','A6o','A7o','A8o',
-      'K2o','K3o','K4o','K5o','K6o',
-      'K3s','K2s',
-      'Q8s','Q7s','Q5s',
+      // HJ opens 21.3% — offsuit hands below ATo/KJo/QJo are folds
+      'A9o','A8o','A7o','A6o','A5o','A4o','A3o','A2o',
+      'K9o','K8o','K7o','K6o',
+      'Q9o','Q8o','JTo','J9o',
+      // Suited hands below the HJ cutoffs
+      'K7s','K6s','K5s','K4s','K3s','K2s',
+      'Q8s','Q7s','Q6s',
       'J8s','J7s',
       'T7s','T6s',
-      '97s','86s','75s','64s','53s',
-      '65o','54o',
+      '96s','86s','75s','64s','53s','43s',
     ],
     CO: [
-      'A2o','A3o','A4o','A5o','A6o','A7o',
-      'K2o','K3o','K4o',
-      'Q5o','Q4o',
+      // CO opens 27% — folds below A9o, KTo, QTo, JTo
+      'A8o','A7o','A6o','A5o','A4o','A3o','A2o',
+      'K9o','K8o','K7o',
+      'Q9o','Q8o',
+      'J9o','J8o',
+      // Suited hands below CO cutoffs
+      'K6s','K5s','K4s','K3s','K2s',
+      'Q7s','Q6s','Q5s','Q4s',
       'J7s','J6s','J5s',
-      'T6s','T5s',
-      '85o','75o',
-      '42s','32s',
+      'T7s','T6s',
+      '96s','85s','74s','63s','53s','52s',
     ],
     BTN: [
-      'A3o','A2o',
-      'K7o','K6o','K5o',
-      'J3s','J2s',
+      // BTN opens 51.1% — folds below K4o, Q8o, J8o, T9o
+      'K3o','K2o',
+      'Q7o','Q6o','Q5o','J7o','J6o',
+      'T8o','T7o',
+      '97o','96o','86o','75o','65o',
+      // Suited folds
+      'J5s','J4s','J3s','J2s',
       'T5s','T4s','T3s','T2s',
-      '95s','84s','73s',
-      '52s',
-      '62s',
+      '95s','93s','85s','84s','74s','73s','63s','62s','52s','42s','32s',
     ],
     SB: [
-      'K5o','K4o','K3o','K2o',
-      'Q6o','Q5o','Q4o',
-      'J6o','J5o','J4o',
-      'T5o','T4o',
-      '84o','73o',
+      // SB uses 4-action system; most hands are raise/bluff/limp
+      // True folds: very weak offsuit hands with no limp value
+      'J5o','J4o','J3o','J2o',
+      'T5o','T4o','T3o','T2o',
+      '95o','94o','93o','92o',
+      '85o','84o','83o','82o',
+      '75o','74o','73o','72o',
+      '64o','63o','62o',
+      '53o','52o','43o',
+      'T3s','T2s','93s','92s','83s','82s','73s','72s','62s','52s','42s',
     ],
   };
   return folds[position] || [];
@@ -476,8 +560,8 @@ export function getActionExplanation(hand, position, correctAction) {
     UTG: 'UTG acts first with 5 players behind. Only open premium hands that can withstand 3-bets.',
     HJ:  'HJ has 4 players behind. Slightly wider than UTG, but still tight and aggressive.',
     CO:  'CO has 3 players behind (BTN, SB, BB). Opens can include many suited hands and pairs.',
-    BTN: 'BTN is the most profitable seat — position on everyone postflop. Open ~43% of hands.',
-    SB:  'SB faces only the BB. Wide range is profitable, but use 3bb open to deny BB a good price.',
+    BTN: 'BTN is the most profitable seat — position on everyone postflop. Open ~51% of hands.',
+    SB:  'SB faces only the BB. Use a 4-action strategy: raise value hands, raise-bluff polarized, limp playable hands, fold the rest.',
     BB:  'BB defends very wide due to favorable pot odds (already invested 1bb).',
   };
 

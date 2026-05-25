@@ -4,7 +4,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Card from '../components/Card.js';
 import CardBack from '../components/CardBack.js';
 import { POSTFLOP_SCENARIOS, getCbetRecommendation } from '../data/scenarios.js';
+import { BOARD, POSTFLOP } from '../engine/gto-engine.js';
 import { C, Colors, Fonts, Size, Space, Radius, T } from '../theme.js';
+
+const SUIT_MAP = { '♠': 's', '♥': 'h', '♦': 'd', '♣': 'c' };
+function cardToEngineStr(card) {
+  return card.rank + (SUIT_MAP[card.suit] || card.suit);
+}
 
 const TEXTURE_COLORS = {
   Dry:       { text: C.green,   bg: 'rgba(104,168,112,0.1)' },
@@ -34,6 +40,16 @@ export default function PostflopScreen({ recordResult }) {
   const rec = getCbetRecommendation(scenario.boardTexture, scenario.heroPosition === 'BTN' ? 'IP' : 'OOP');
   const textureStyle = TEXTURE_COLORS[scenario.boardTexture] || { text: '#888', bg: 'rgba(100,100,100,0.1)' };
   const spr = scenario.spr ?? (scenario.effectiveStackBB / scenario.potBB).toFixed(1);
+
+  // GTO board analysis
+  let boardAnalysis = null;
+  let gtoCbet = null;
+  try {
+    const boardStrs = scenario.board.map(cardToEngineStr);
+    boardAnalysis = BOARD.classify(boardStrs);
+    const cbetPos = ['BTN','CO','HJ'].includes(scenario.heroPosition) ? 'ip' : 'oop';
+    gtoCbet = POSTFLOP.cbetGuidelines(boardAnalysis, cbetPos, 'srp');
+  } catch (_) { /* skip if board parse fails */ }
 
   function handleChoice(val) {
     if (userChoice !== null) return;
@@ -174,9 +190,25 @@ export default function PostflopScreen({ recordResult }) {
           </Text>
           <Text style={styles.feedbackText}>{scenario.explanation}</Text>
           <View style={styles.recBox}>
-            <Text style={styles.recTitle}>Board Rec ({scenario.boardTexture}):</Text>
-            <Text style={styles.recLine}><Text style={{ color: C.amber }}>Frequency: </Text>{rec.frequency}</Text>
-            <Text style={styles.recLine}><Text style={{ color: C.amber }}>Sizing: </Text>{rec.sizing}</Text>
+            <Text style={styles.recTitle}>GTO Board Analysis ({scenario.boardTexture}):</Text>
+            {gtoCbet ? (
+              <>
+                <Text style={styles.recLine}><Text style={{ color: C.amber }}>C-Bet Freq: </Text>{gtoCbet.freq}</Text>
+                <Text style={styles.recLine}><Text style={{ color: C.amber }}>Sizing: </Text>{gtoCbet.sizing}</Text>
+                <Text style={styles.recLine}><Text style={{ color: C.amber }}>Range Adv: </Text>{boardAnalysis.rangeAdvantage.reasoning}</Text>
+                {boardAnalysis.flush.hasFlushDraw && (
+                  <Text style={styles.recLine}><Text style={{ color: C.blue }}>Flush: </Text>{boardAnalysis.flush.type}</Text>
+                )}
+                {boardAnalysis.straight.connected && (
+                  <Text style={styles.recLine}><Text style={{ color: C.blue }}>Straight: </Text>{boardAnalysis.straight.openEnded ? 'open-ended draws present' : boardAnalysis.straight.gutshot ? 'gutshot possible' : 'connected'}</Text>
+                )}
+              </>
+            ) : (
+              <>
+                <Text style={styles.recLine}><Text style={{ color: C.amber }}>Frequency: </Text>{rec.frequency}</Text>
+                <Text style={styles.recLine}><Text style={{ color: C.amber }}>Sizing: </Text>{rec.sizing}</Text>
+              </>
+            )}
           </View>
           <Text style={styles.keyLesson}>Key lesson: {scenario.keyLesson}</Text>
         </View>

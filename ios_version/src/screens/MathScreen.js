@@ -4,27 +4,73 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, T, Colors, Fonts, Size, Space, Radius } from '../theme.js';
 
 // ── Engine import — all math logic lives here, zero UI code ──────
-import { generateQuestion, DRILL_TYPES, FORMULA_REFERENCE } from '../engine/mathEngine.js';
+import { generateQuestion, DRILL_TYPES as BASE_DRILL_TYPES, FORMULA_REFERENCE } from '../engine/mathEngine.js';
+import { QUIZZES } from '../engine/gto-engine.js';
+
+const DRILL_TYPES = [
+  ...BASE_DRILL_TYPES,
+  { id: 'bluff',    label: 'Bluff Freq' },
+  { id: 'texture',  label: 'Texture' },
+  { id: 'threebet', label: '3-Bet' },
+];
 
 // ── UI-only display maps (theme colours, badge labels) ───────────
 // These belong in the screen because they reference theme tokens (C.green etc.)
 // and have no meaning outside of a visual context.
 
 const TYPE_COLORS = {
-  potodds: { text: C.green,  bg: 'rgba(104,168,112,0.1)' },
-  mdf:     { text: C.blue,   bg: 'rgba(85,119,224,0.1)'  },
-  alpha:   { text: C.red,    bg: 'rgba(224,69,69,0.1)'   },
-  spr:     { text: C.amber,  bg: 'rgba(232,160,48,0.1)'  },
-  ev:      { text: C.purple, bg: 'rgba(128,104,232,0.1)' },
+  potodds:         { text: C.green,    bg: 'rgba(104,168,112,0.1)' },
+  mdf:             { text: C.blue,     bg: 'rgba(85,119,224,0.1)'  },
+  alpha:           { text: C.red,      bg: 'rgba(224,69,69,0.1)'   },
+  spr:             { text: C.amber,    bg: 'rgba(232,160,48,0.1)'  },
+  ev:              { text: C.purple,   bg: 'rgba(128,104,232,0.1)' },
+  bluff_frequency: { text: C.red,      bg: 'rgba(224,69,69,0.1)'   },
+  board_texture:   { text: '#10b981',  bg: 'rgba(16,185,129,0.1)'  },
+  three_bet:       { text: C.purple,   bg: 'rgba(128,104,232,0.1)' },
+  spr_commitment:  { text: C.amber,    bg: 'rgba(232,160,48,0.1)'  },
+  preflop_range:   { text: C.green,    bg: 'rgba(104,168,112,0.1)' },
+  ev_calculation:  { text: C.purple,   bg: 'rgba(128,104,232,0.1)' },
+  pot_odds:        { text: C.green,    bg: 'rgba(104,168,112,0.1)' },
 };
 
 const TYPE_LABELS = {
-  potodds: 'Pot Odds',
-  mdf:     'MDF',
-  alpha:   'Alpha',
-  spr:     'SPR',
-  ev:      'EV Call',
+  potodds:         'Pot Odds',
+  mdf:             'MDF',
+  alpha:           'Alpha',
+  spr:             'SPR',
+  ev:              'EV Call',
+  bluff_frequency: 'Bluff Freq',
+  board_texture:   'Texture',
+  three_bet:       '3-Bet',
+  spr_commitment:  'SPR',
+  preflop_range:   'Range',
+  ev_calculation:  'EV Bet',
+  pot_odds:        'Pot Odds',
 };
+
+function quizToQuestion(quiz) {
+  return {
+    type: quiz.type,
+    question: quiz.question,
+    formula: quiz.formula || '—',
+    options: quiz.choices.map(c => ({ value: c, label: c })),
+    correct: quiz.correctAnswer,
+    explanation: quiz.explanation,
+  };
+}
+
+function getQuestion(type) {
+  switch (type) {
+    case 'bluff':    return quizToQuestion(QUIZZES.generateBluffFreqQuiz());
+    case 'texture':  return quizToQuestion(QUIZZES.generateBoardTextureQuiz());
+    case 'threebet': return quizToQuestion(QUIZZES.generate3BetQuiz());
+    case 'all':
+      return Math.random() < 0.3
+        ? quizToQuestion(QUIZZES.getRandomQuiz())
+        : generateQuestion('all');
+    default: return generateQuestion(type);
+  }
+}
 
 // Maps the colorKey strings from FORMULA_REFERENCE → actual theme colour values.
 const COLOR_MAP = {
@@ -45,7 +91,7 @@ export default function MathScreen({ recordResult }) {
   const [showRef,   setShowRef]   = useState(false);
 
   const nextQ = useCallback(() => {
-    setQuestion(generateQuestion(drillType));
+    setQuestion(getQuestion(drillType));
     setChosen(null);
   }, [drillType]);
 

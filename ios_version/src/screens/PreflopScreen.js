@@ -9,6 +9,7 @@ import {
   SB_RAISE_VALUE, SB_RAISE_BLUFF, SB_LIMP,
   getRFIAction, getEVLoss, getNickname, getActionExplanation, buildTrainerPool,
 } from '../data/ranges.js';
+import { EVALUATOR } from '../engine/gto-engine.js';
 import VsRaiseTrainer from '../components/VsRaiseTrainer.js';
 import { C, Colors, Fonts, Size, Space, Radius, T } from '../theme.js';
 
@@ -58,6 +59,15 @@ function getFeedbackStyle(evLoss) {
   return { border: C.red, text: C.red, label: 'Significant Mistake' };
 }
 
+function getFeedbackFromEval(evalRes) {
+  if (!evalRes) return { border: C.green, text: C.green, label: 'Correct!' };
+  if (evalRes.isCorrect) return { border: C.green, text: C.green, label: 'Correct!' };
+  const loss = Math.abs(evalRes.evLossMBB);
+  if (loss < 4)  return { border: C.amber,    text: C.amber,    label: 'Minor Leak' };
+  if (loss < 10) return { border: '#f97316',  text: '#f97316',  label: 'Medium Mistake' };
+  return              { border: C.red,        text: C.red,       label: 'Significant Mistake' };
+}
+
 export default function PreflopScreen({ recordResult }) {
   const insets = useSafeAreaInsets();
   const [mode,          setMode]          = useState('rfi');
@@ -67,6 +77,7 @@ export default function PreflopScreen({ recordResult }) {
   const [cards,         setCards]         = useState([]);
   const [correctAction, setCorrectAction] = useState(null);
   const [userAction,    setUserAction]    = useState(null);
+  const [evalResult,    setEvalResult]    = useState(null);
   const [streak,        setStreak]        = useState(0);
   const [sessionStats,  setSessionStats]  = useState({ total: 0, correct: 0 });
 
@@ -82,6 +93,7 @@ export default function PreflopScreen({ recordResult }) {
     setCards(parseHand(hand));
     setCorrectAction(action);
     setUserAction(null);
+    setEvalResult(null);
   }, [selectedPos]);
 
   useEffect(() => { drawHand(); }, []);
@@ -89,15 +101,23 @@ export default function PreflopScreen({ recordResult }) {
   function handleAction(action) {
     if (userAction !== null) return;
     setUserAction(action);
-    const evLoss = getEVLoss(correctAction, action);
-    const isCorrect = evLoss.bb === 0 || Math.abs(evLoss.bb) <= 0.05;
+    let isCorrect;
+    if (currentPos !== 'SB') {
+      const result = EVALUATOR.evalPreflopRFI(currentHand, currentPos, action);
+      setEvalResult(result);
+      isCorrect = result.isCorrect;
+    } else {
+      setEvalResult(null);
+      const evLoss = getEVLoss(correctAction, action);
+      isCorrect = evLoss.bb === 0 || Math.abs(evLoss.bb) <= 0.05;
+    }
     setSessionStats(prev => ({ total: prev.total + 1, correct: prev.correct + (isCorrect ? 1 : 0) }));
     setStreak(prev => isCorrect ? prev + 1 : 0);
     recordResult({ correct: isCorrect, position: currentPos });
   }
 
-  const evLoss   = userAction ? getEVLoss(correctAction, userAction) : null;
-  const fbStyle  = evLoss ? getFeedbackStyle(evLoss) : null;
+  const evLoss  = (userAction && currentPos === 'SB') ? getEVLoss(correctAction, userAction) : null;
+  const fbStyle = userAction ? (evLoss ? getFeedbackStyle(evLoss) : getFeedbackFromEval(evalResult)) : null;
   const nickname = currentHand ? getNickname(currentHand) : null;
   const pct      = sessionStats.total > 0 ? Math.round((sessionStats.correct / sessionStats.total) * 100) : null;
 
@@ -221,9 +241,15 @@ export default function PreflopScreen({ recordResult }) {
         <View style={[styles.feedbackBox, { borderColor: fbStyle.border }]}>
           <View style={styles.feedbackHeader}>
             <Text style={[styles.feedbackLabel, { color: fbStyle.text }]}>{fbStyle.label}</Text>
-            <Text style={{ fontSize: 13, color: evLoss.bb < 0 ? C.red : C.green }}>
-              {evLoss.bb < 0 ? evLoss.bb + ' bb' : 'No EV loss'}
-            </Text>
+            {evalResult ? (
+              <Text style={{ fontSize: 12, color: evalResult.isMixed ? C.amber : evalResult.isCorrect ? C.green : C.red }}>
+                GTO: {Math.round(evalResult.gtoFreq * 100)}% raise{evalResult.isMixed ? ' (mixed)' : ''}
+              </Text>
+            ) : (
+              <Text style={{ fontSize: 13, color: evLoss?.bb < 0 ? C.red : C.green }}>
+                {evLoss?.bb < 0 ? evLoss.bb + ' bb' : 'No EV loss'}
+              </Text>
+            )}
           </View>
           <Text style={styles.correctActionLine}>
             <Text style={{ color: '#888' }}>Correct: </Text>
@@ -232,7 +258,10 @@ export default function PreflopScreen({ recordResult }) {
               correctAction === 'raise_bluff' ? '#3b82f6' :
               correctAction === 'limp' ? '#10b981' :
               correctAction === 'fold' ? C.red : C.amber }}>
-              {correctAction === 'mix' ? 'Raise ~50% / Fold ~50% (MIX)'
+              {evalResult
+                ? (evalResult.gtoAction === 'raise' ? 'RAISE' : 'FOLD') +
+                  (evalResult.isMixed ? ` (~${Math.round(evalResult.gtoFreq * 100)}%)` : '')
+                : correctAction === 'mix' ? 'Raise ~50% / Fold ~50% (MIX)'
                 : correctAction === 'raise_value' ? 'RAISE (Value)'
                 : correctAction === 'raise_bluff' ? 'RAISE (Bluff)'
                 : correctAction?.toUpperCase()}
@@ -240,7 +269,9 @@ export default function PreflopScreen({ recordResult }) {
             <Text style={{ color: '#888' }}>  ·  You: </Text>
             <Text style={{ color: '#fff', fontWeight: '600' }}>{userAction?.toUpperCase()}</Text>
           </Text>
-          <Text style={styles.explanation}>{getActionExplanation(currentHand, currentPos, correctAction)}</Text>
+          <Text style={styles.explanation}>
+            {evalResult ? evalResult.feedback : getActionExplanation(currentHand, currentPos, correctAction)}
+          </Text>
 
           {correctAction === 'fold' && userAction === 'raise' && (
             <View style={styles.remindBox}>
