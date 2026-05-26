@@ -92,17 +92,13 @@ export function useStreak() {
   const [loaded,         setLoaded]         = useState(false);
 
   useEffect(() => {
-    // DEV: clear all streak data on every reload so Expo Go starts fresh.
-    // Remove this multiRemove call (and restore the plain loadRaw call) before shipping.
-    AsyncStorage.multiRemove([K.count, K.date, K.longest, K.dailyCount, K.dailyDate])
-      .then(() => loadRaw())
-      .then(({ count, lastDate, longest, dailyCount: dc }) => {
-        setStreak(count);
-        setLongestStreak(longest);
-        setPracticedToday(lastDate === todayStr());
-        setDailyCount(dc);
-        setLoaded(true);
-      });
+    loadRaw().then(({ count, lastDate, longest, dailyCount: dc }) => {
+      setStreak(count);
+      setLongestStreak(longest);
+      setPracticedToday(lastDate === todayStr());
+      setDailyCount(dc);
+      setLoaded(true);
+    });
   }, []);
 
   const recordPractice = useCallback(async () => {

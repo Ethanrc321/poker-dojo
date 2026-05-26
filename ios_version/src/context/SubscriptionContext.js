@@ -17,24 +17,26 @@ const MANAGE_URL = Platform.OS === 'ios'
   : 'https://play.google.com/store/account/subscriptions';
 
 const SubscriptionContext = createContext({
-  isSubscribed:        false,
-  purchasing:          false,
+  isSubscribed:         false,
+  purchasing:           false,
   purchaseSubscription: () => {},
-  purchaseMonthly:     () => {},
-  purchaseYearly:      () => {},
-  devActivateDirect:   () => {},
-  restorePurchases:    () => {},
-  manageSubscription:  () => {},
+  purchaseMonthly:      () => {},
+  purchaseYearly:       () => {},
+  restorePurchases:     () => {},
+  manageSubscription:   () => {},
 });
 
 export function SubscriptionProvider({ children }) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [purchasing,   setPurchasing]   = useState(false);
 
-  // DEV: clear subscription on every app start so Expo Go reloads begin unsubscribed.
-  // Remove the removeItem call (and keep only getItem) before shipping to production.
+  // Restore persisted subscription state on mount.
+  // When real IAP is wired (RevenueCat / StoreKit), replace this getItem with a
+  // live entitlement check — AsyncStorage becomes a cache, not the source of truth.
   useEffect(() => {
-    AsyncStorage.removeItem(SUB_KEY);
+    AsyncStorage.getItem(SUB_KEY).then(val => {
+      if (val === 'true') setIsSubscribed(true);
+    });
   }, []);
 
   // Shared dev-stub that activates premium for testing
@@ -56,12 +58,6 @@ export function SubscriptionProvider({ children }) {
         },
       ]
     );
-  }, []);
-
-  // DEV ONLY — activates premium instantly with no popup. Remove before shipping.
-  const devActivateDirect = useCallback(async () => {
-    await AsyncStorage.setItem(SUB_KEY, 'true');
-    setIsSubscribed(true);
   }, []);
 
   // Legacy single-plan entry point (used by PaywallGate)
@@ -89,7 +85,6 @@ export function SubscriptionProvider({ children }) {
     <SubscriptionContext.Provider value={{
       isSubscribed, purchasing,
       purchaseSubscription, purchaseMonthly, purchaseYearly,
-      devActivateDirect,
       restorePurchases, manageSubscription,
     }}>
       {children}

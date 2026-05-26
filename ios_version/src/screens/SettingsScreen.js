@@ -223,13 +223,13 @@ export default function SettingsScreen({ resetStats, onNavigate }) {
           <Row
             icon="document-text-outline"
             label="Privacy Policy"
-            onPress={() => Linking.openURL('https://yourapp.com/privacy').catch(() => {})}
+            onPress={() => Linking.openURL('https://pokerdojo.app/privacy').catch(() => {})}
           />
           <Divider />
           <Row
             icon="shield-checkmark-outline"
             label="Terms of Service"
-            onPress={() => Linking.openURL('https://yourapp.com/terms').catch(() => {})}
+            onPress={() => Linking.openURL('https://pokerdojo.app/terms').catch(() => {})}
           />
         </View>
 
