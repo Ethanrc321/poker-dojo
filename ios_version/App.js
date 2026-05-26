@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold } from '@expo-google-fonts/dm-sans';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import DashboardScreen from './src/screens/DashboardScreen.js';
 import PreflopScreen   from './src/screens/PreflopScreen.js';
@@ -10,14 +11,19 @@ import PostflopScreen  from './src/screens/PostflopScreen.js';
 import MathScreen      from './src/screens/MathScreen.js';
 import ChartsScreen    from './src/screens/ChartsScreen.js';
 import ReadingScreen   from './src/screens/ReadingScreen.js';
-import GlossaryScreen  from './src/screens/GlossaryScreen.js';
-import SettingsScreen  from './src/screens/SettingsScreen.js';
+import GlossaryScreen      from './src/screens/GlossaryScreen.js';
+import SettingsScreen      from './src/screens/SettingsScreen.js';
+import SubscriptionScreen  from './src/screens/SubscriptionScreen.js';
 
-import SpadeMenu    from './src/components/SpadeMenu.js';
-import PaywallGate  from './src/components/PaywallGate.js';
+import SpadeMenu         from './src/components/SpadeMenu.js';
+import PaywallGate       from './src/components/PaywallGate.js';
+import OnboardingScreen  from './src/screens/OnboardingScreen.js';
 
 import { AuthProvider, useAuth }             from './src/context/AuthContext.js';
 import { SubscriptionProvider }              from './src/context/SubscriptionContext.js';
+import { useStreak }                         from './src/utils/streak.js';
+import { scheduleStreakReminder, cancelStreakReminder } from './src/utils/notifications.js';
+import { loadHapticsPreference } from './src/utils/haptics.js';
 
 // ── Initial stats shape ───────────────────────────────────────────────────────
 const INITIAL_STATS = {
@@ -39,6 +45,9 @@ const TABS = [
   { id: 'Settings', label: 'Settings', icon: 'settings-outline'      },
 ];
 
+// Screens that don't appear in the SpadeMenu tab bar (pushed over the top)
+const OVERLAY_SCREENS = ['Subscription'];
+
 // ── Root shell — provides context ─────────────────────────────────────────────
 export default function App() {
   return (
@@ -53,13 +62,32 @@ export default function App() {
 }
 
 // ── Main app — consumes context ───────────────────────────────────────────────
+const ONBOARDING_KEY = '@poker_onboarding_done';
+
 function AppContent() {
   const [fontsLoaded] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold });
-  const [currentScreen, setCurrentScreen] = useState('Home');
-  const [stats,         setStats]         = useState(INITIAL_STATS);
+  const [currentScreen,   setCurrentScreen]   = useState('Home');
+  const [stats,           setStats]           = useState(INITIAL_STATS);
+  const [onboardingDone,  setOnboardingDone]  = useState(null); // null = loading
 
   const { user, saveStats, loadStats } = useAuth();
   const cloudLoadedRef = useRef(false); // prevents initial load overwriting cloud data
+  const { streak, longestStreak, practicedToday, dailyCount, loaded: streakLoaded, recordPractice } = useStreak();
+
+  // Restore haptics preference on first mount
+  useEffect(() => { loadHapticsPreference(); }, []);
+
+  // Check if onboarding has been completed before
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_KEY).then(val => {
+      setOnboardingDone(val === 'true');
+    });
+  }, []);
+
+  // Schedule (or reschedule) the 8pm streak reminder on every app launch
+  useEffect(() => {
+    if (streakLoaded) scheduleStreakReminder(streak, practicedToday);
+  }, [streakLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load cloud stats once when user signs in
   useEffect(() => {
@@ -78,6 +106,11 @@ function AppContent() {
   }, [stats]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const recordResult = useCallback((module, { correct, position } = {}) => {
+    // Record practice day for streak — awards streak once DAILY_GOAL hands are reached
+    recordPractice().then(result => {
+      if (result.isNew) cancelStreakReminder(); // just earned today's streak — cancel reminder
+    });
+
     setStats(prev => {
       const m = prev[module] || { total: 0, correct: 0 };
       const updated = {
@@ -108,7 +141,28 @@ function AppContent() {
     cloudLoadedRef.current = false; // allow re-sync after reset
   }, []);
 
-  if (!fontsLoaded) return null;
+  const completeOnboarding = useCallback(async () => {
+    await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+    setOnboardingDone(true);
+  }, []);
+
+  const onboardingStartTrial = useCallback(async () => {
+    await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+    setOnboardingDone(true);
+    setCurrentScreen('Subscription');
+  }, []);
+
+  if (!fontsLoaded || onboardingDone === null) return null;
+
+  // Show onboarding for first-time users
+  if (!onboardingDone) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <OnboardingScreen onComplete={completeOnboarding} onStartTrial={onboardingStartTrial} />
+      </>
+    );
+  }
 
   // All screens stay mounted; only the active one is visible
   const show = id => ({ flex: 1, display: currentScreen === id ? 'flex' : 'none' });
@@ -124,39 +178,47 @@ function AppContent() {
               stats={stats}
               resetStats={resetStats}
               onNavigate={setCurrentScreen}
+              streak={streak}
+              longestStreak={longestStreak}
+              practicedToday={practicedToday}
+              dailyCount={dailyCount}
             />
           </View>
 
           {/* Free ─────────────────────────────────── */}
           <View style={show('Preflop')}>
-            <PreflopScreen recordResult={(d) => recordResult('preflop', d)} />
+            <PreflopScreen
+              recordResult={(d) => recordResult('preflop', d)}
+              isActive={currentScreen === 'Preflop'}
+              onNavigate={setCurrentScreen}
+            />
           </View>
 
           <View style={show('Charts')}>
-            <ChartsScreen />
+            <ChartsScreen onNavigate={setCurrentScreen} />
           </View>
 
           {/* Premium — gated ─────────────────────── */}
           <View style={show('Postflop')}>
-            <PaywallGate feature="postflop">
+            <PaywallGate feature="postflop" onUpgrade={() => setCurrentScreen('Subscription')}>
               <PostflopScreen recordResult={(d) => recordResult('postflop', d)} />
             </PaywallGate>
           </View>
 
           <View style={show('Math')}>
-            <PaywallGate feature="math">
+            <PaywallGate feature="math" onUpgrade={() => setCurrentScreen('Subscription')}>
               <MathScreen recordResult={(d) => recordResult('math', d)} />
             </PaywallGate>
           </View>
 
           <View style={show('Reading')}>
-            <PaywallGate feature="reading">
+            <PaywallGate feature="reading" onUpgrade={() => setCurrentScreen('Subscription')}>
               <ReadingScreen recordResult={(d) => recordResult('quiz', d)} />
             </PaywallGate>
           </View>
 
           <View style={show('Glossary')}>
-            <PaywallGate feature="glossary">
+            <PaywallGate feature="glossary" onUpgrade={() => setCurrentScreen('Subscription')}>
               <GlossaryScreen />
             </PaywallGate>
           </View>
@@ -165,13 +227,22 @@ function AppContent() {
             <SettingsScreen resetStats={resetStats} onNavigate={setCurrentScreen} />
           </View>
 
+          {/* Overlay screens — no tab bar entry ──── */}
+          <View style={show('Subscription')}>
+            <SubscriptionScreen onNavigate={setCurrentScreen} />
+          </View>
+
         </View>
 
-        <SpadeMenu
-          tabs={TABS}
-          currentScreen={currentScreen}
-          onNavigate={setCurrentScreen}
-        />
+        {!OVERLAY_SCREENS.includes(currentScreen) && (
+          <SpadeMenu
+            tabs={TABS}
+            currentScreen={currentScreen}
+            onNavigate={setCurrentScreen}
+          />
+        )}
+
+
       </View>
     </>
   );

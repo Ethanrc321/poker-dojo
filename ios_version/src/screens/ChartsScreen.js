@@ -78,7 +78,7 @@ function NotePanel({ title, children }) {
   );
 }
 
-export default function ChartsScreen() {
+export default function ChartsScreen({ onNavigate }) {
   const insets = useSafeAreaInsets();
   const [view,   setView]   = useState('rfi');
   const [rfiPos, setRfiPos] = useState('UTG');
@@ -163,7 +163,7 @@ export default function ChartsScreen() {
 
         {/* ── Math Tables (Premium) ──────────────────────────────── */}
         {view === 'math' && (
-          <PaywallGate feature="charts">
+          <PaywallGate feature="charts" onUpgrade={() => onNavigate?.('Subscription')}>
           <View style={styles.section}>
             <SimpleTable
               title="Pot Odds (Equity Needed to Call)"

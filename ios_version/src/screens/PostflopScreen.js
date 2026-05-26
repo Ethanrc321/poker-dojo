@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import Card from '../components/Card.js';
 import CardBack from '../components/CardBack.js';
-import { POSTFLOP_SCENARIOS, getCbetRecommendation } from '../data/scenarios.js';
+import { getCbetRecommendation } from '../data/scenarios.js';
+import { generatePostflopScenario } from '../data/postflopEngine.js';
 import { BOARD, POSTFLOP } from '../engine/gto-engine.js';
 import { C, Colors, Fonts, Size, Space, Radius, T } from '../theme.js';
+import { triggerHaptic, Haptics } from '../utils/haptics.js';
 
 const SUIT_MAP = { '♠': 's', '♥': 'h', '♦': 'd', '♣': 'c' };
 function cardToEngineStr(card) {
@@ -20,24 +23,14 @@ const TEXTURE_COLORS = {
   Monotone:  { text: C.red,     bg: 'rgba(224,69,69,0.1)' },
 };
 
-function makeOrder(n) {
-  const a = Array.from({ length: n }, (_, i) => i);
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 export default function PostflopScreen({ recordResult }) {
   const insets = useSafeAreaInsets();
-  const [order,        setOrder]        = useState(() => makeOrder(POSTFLOP_SCENARIOS.length));
-  const [pos,          setPos]          = useState(0);
+  const [scenario,     setScenario]     = useState(() => generatePostflopScenario());
+  const [handCount,    setHandCount]    = useState(1);
   const [userChoice,   setUserChoice]   = useState(null);
   const [sessionStats, setSessionStats] = useState({ total: 0, correct: 0 });
 
-  const scenario = POSTFLOP_SCENARIOS[order[pos]];
-  const rec = getCbetRecommendation(scenario.boardTexture, scenario.heroPosition === 'BTN' ? 'IP' : 'OOP');
+  const rec = getCbetRecommendation(scenario.boardTexture, scenario.heroPos === 'BTN' ? 'IP' : 'OOP');
   const textureStyle = TEXTURE_COLORS[scenario.boardTexture] || { text: '#888', bg: 'rgba(100,100,100,0.1)' };
   const spr = scenario.spr ?? (scenario.effectiveStackBB / scenario.potBB).toFixed(1);
 
@@ -47,7 +40,7 @@ export default function PostflopScreen({ recordResult }) {
   try {
     const boardStrs = scenario.board.map(cardToEngineStr);
     boardAnalysis = BOARD.classify(boardStrs);
-    const cbetPos = ['BTN','CO','HJ'].includes(scenario.heroPosition) ? 'ip' : 'oop';
+    const cbetPos = ['BTN','CO','HJ'].includes(scenario.heroPos) ? 'ip' : 'oop';
     gtoCbet = POSTFLOP.cbetGuidelines(boardAnalysis, cbetPos, 'srp');
   } catch (_) { /* skip if board parse fails */ }
 
@@ -57,16 +50,15 @@ export default function PostflopScreen({ recordResult }) {
     setUserChoice(val);
     setSessionStats(prev => ({ total: prev.total + 1, correct: prev.correct + (isCorrect ? 1 : 0) }));
     recordResult({ correct: isCorrect });
+    triggerHaptic(isCorrect
+      ? Haptics.NotificationFeedbackType.Success
+      : Haptics.NotificationFeedbackType.Error
+    );
   }
 
   function next() {
-    const nextPos = pos + 1;
-    if (nextPos >= order.length) {
-      setOrder(makeOrder(POSTFLOP_SCENARIOS.length));
-      setPos(0);
-    } else {
-      setPos(nextPos);
-    }
+    setScenario(generatePostflopScenario());
+    setHandCount(n => n + 1);
     setUserChoice(null);
   }
 
@@ -89,7 +81,7 @@ export default function PostflopScreen({ recordResult }) {
 
       {/* Scenario header */}
       <View style={styles.scenarioHeader}>
-        <Text style={styles.scenarioIdx}>{pos + 1}/{POSTFLOP_SCENARIOS.length}</Text>
+        <Text style={styles.scenarioIdx}>Hand #{handCount}</Text>
         <Text style={styles.scenarioTitle}>{scenario.title}</Text>
       </View>
 
@@ -98,7 +90,7 @@ export default function PostflopScreen({ recordResult }) {
         {/* Players */}
         <View style={styles.playerRow}>
           <View style={styles.playerSide}>
-            <Text style={styles.playerPos}>{scenario.villainPosition}</Text>
+            <Text style={styles.playerPos}>{scenario.villainPos}</Text>
             <View style={styles.hiddenCards}>
               <CardBack size="sm" />
               <CardBack size="sm" />
@@ -111,7 +103,7 @@ export default function PostflopScreen({ recordResult }) {
           </View>
 
           <View style={[styles.playerSide, { alignItems: 'flex-end' }]}>
-            <Text style={[styles.playerPos, { color: C.green }]}>YOU ({scenario.heroPosition})</Text>
+            <Text style={[styles.playerPos, { color: C.green }]}>YOU ({scenario.heroPos})</Text>
             <View style={styles.heroCardsRow}>
               <Card card={scenario.heroHand} size="sm" />
               <Card card={scenario.heroHand2} size="sm" />
@@ -168,11 +160,11 @@ export default function PostflopScreen({ recordResult }) {
                 style={[styles.option, { backgroundColor: bg, borderColor: border }]}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.optionText, { color: textColor }]}>
-                  {userChoice !== null && isCorrect ? '✓ ' : ''}
-                  {isSel && !isCorrect ? '✗ ' : ''}
-                  {opt.label}
-                </Text>
+                <View style={styles.optionInner}>
+                  {userChoice !== null && isCorrect && <Ionicons name="checkmark" size={14} color={textColor} />}
+                  {isSel && !isCorrect && <Ionicons name="close" size={14} color={textColor} />}
+                  <Text style={[styles.optionText, { color: textColor, flex: 1 }]}>{opt.label}</Text>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -185,9 +177,12 @@ export default function PostflopScreen({ recordResult }) {
           borderColor: isCorrectAnswer ? '#166534' : '#92400e',
           backgroundColor: isCorrectAnswer ? 'rgba(0,128,0,0.1)' : 'rgba(180,83,9,0.1)',
         }]}>
-          <Text style={[styles.feedbackTitle, { color: isCorrectAnswer ? C.green : C.amber }]}>
-            {isCorrectAnswer ? '✓ Correct!' : 'Not Optimal'}
-          </Text>
+          <View style={styles.feedbackTitleRow}>
+            <Ionicons name={isCorrectAnswer ? 'checkmark-circle' : 'alert-circle'} size={16} color={isCorrectAnswer ? C.green : C.amber} />
+            <Text style={[styles.feedbackTitle, { color: isCorrectAnswer ? C.green : C.amber }]}>
+              {isCorrectAnswer ? 'Correct!' : 'Not Optimal'}
+            </Text>
+          </View>
           <Text style={styles.feedbackText}>{scenario.explanation}</Text>
           <View style={styles.recBox}>
             <Text style={styles.recTitle}>GTO Board Analysis ({scenario.boardTexture}):</Text>
@@ -217,7 +212,10 @@ export default function PostflopScreen({ recordResult }) {
       {/* Next */}
       {userChoice !== null && (
         <TouchableOpacity onPress={next} style={styles.nextBtn} activeOpacity={0.85}>
-          <Text style={styles.nextBtnText}>Next Scenario →</Text>
+          <View style={styles.nextBtnInner}>
+            <Text style={styles.nextBtnText}>Next Scenario</Text>
+            <Ionicons name="arrow-forward" size={16} color={Colors.textPrimary} />
+          </View>
         </TouchableOpacity>
       )}
 
@@ -261,7 +259,10 @@ const styles = StyleSheet.create({
   option:        { paddingHorizontal: Space.sm, paddingVertical: Space.sm, borderRadius: Radius.md, borderWidth: 1 },
   optionText:    { fontFamily: Fonts.regular, fontSize: Size.sm, lineHeight: Size.sm * 1.45 },
   feedback:         { borderRadius: Radius.lg, padding: Space.base, borderWidth: 1, marginBottom: Space.base, gap: Space.xs },
+  feedbackTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   feedbackTitle:    { fontFamily: Fonts.semibold, fontSize: Size.md },
+  optionInner:      { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  nextBtnInner:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   feedbackText:     { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textSecondary, lineHeight: Size.xs * 1.55 },
   recBox:           { backgroundColor: Colors.bg3, borderRadius: Radius.sm, padding: Space.xs },
   recTitle:         { fontFamily: Fonts.semibold, fontSize: Size.xxs, color: Colors.textTertiary, marginBottom: Space.xxs },

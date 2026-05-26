@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { C, T, Colors, Fonts, Size, Space, Radius } from '../theme.js';
+import { triggerHaptic, Haptics } from '../utils/haptics.js';
 
 // ── Engine import — all math logic lives here, zero UI code ──────
 import { generateQuestion, DRILL_TYPES as BASE_DRILL_TYPES, FORMULA_REFERENCE } from '../engine/mathEngine.js';
@@ -104,6 +106,10 @@ export default function MathScreen({ recordResult }) {
     setStats(s => ({ total: s.total + 1, correct: s.correct + (isCorrect ? 1 : 0) }));
     setStreak(s => isCorrect ? s + 1 : 0);
     recordResult({ correct: isCorrect });
+    triggerHaptic(isCorrect
+      ? Haptics.NotificationFeedbackType.Success
+      : Haptics.NotificationFeedbackType.Error
+    );
   }
 
   if (!question) return null;
@@ -180,11 +186,11 @@ export default function MathScreen({ recordResult }) {
                 style={[styles.option, { backgroundColor: bg, borderColor: border }]}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.optionText, { color: textColor }]}>
-                  {chosen !== null && isRight ? '✓ ' : ''}
-                  {isSel && !isRight ? '✗ ' : ''}
-                  {opt.label}
-                </Text>
+                <View style={styles.optionInner}>
+                  {chosen !== null && isRight && <Ionicons name="checkmark" size={14} color={textColor} />}
+                  {isSel && !isRight && <Ionicons name="close" size={14} color={textColor} />}
+                  <Text style={[styles.optionText, { color: textColor, flex: 1 }]}>{opt.label}</Text>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -197,17 +203,23 @@ export default function MathScreen({ recordResult }) {
           borderColor: isCorrect ? '#166534' : '#7f1d1d',
           backgroundColor: isCorrect ? 'rgba(0,128,0,0.1)' : 'rgba(127,0,0,0.1)',
         }]}>
-          <Text style={[styles.explanationTitle, { color: isCorrect ? C.green : C.red }]}>
-            {isCorrect ? '✓ Correct!' : '✗ Incorrect'}
-            {question.spr !== undefined ? `  SPR = ${question.spr}` : ''}
-          </Text>
+          <View style={styles.feedbackTitleRow}>
+            <Ionicons name={isCorrect ? 'checkmark-circle' : 'close-circle'} size={16} color={isCorrect ? C.green : C.red} />
+            <Text style={[styles.explanationTitle, { color: isCorrect ? C.green : C.red }]}>
+              {isCorrect ? 'Correct!' : 'Incorrect'}
+              {question.spr !== undefined ? `  SPR = ${question.spr}` : ''}
+            </Text>
+          </View>
           <Text style={styles.explanationText}>{question.explanation}</Text>
         </View>
       )}
 
       {chosen !== null && (
         <TouchableOpacity onPress={nextQ} style={styles.nextBtn} activeOpacity={0.85}>
-          <Text style={styles.nextBtnText}>Next Question →</Text>
+          <View style={styles.nextBtnInner}>
+            <Text style={styles.nextBtnText}>Next Question</Text>
+            <Ionicons name="arrow-forward" size={16} color={Colors.textPrimary} />
+          </View>
         </TouchableOpacity>
       )}
 
@@ -257,7 +269,10 @@ const styles = StyleSheet.create({
   formulaText:   { fontFamily: Fonts.regular, fontSize: Size.xs, marginBottom: Space.base },
   options:       { gap: Space.xs },
   option:        { paddingHorizontal: Space.base, paddingVertical: Space.sm, borderRadius: Radius.md, borderWidth: 1 },
+  optionInner:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
   optionText:    { fontFamily: Fonts.regular, fontSize: Size.sm },
+  feedbackTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  nextBtnInner:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
   explanation:      { borderRadius: Radius.lg, padding: Space.base, borderWidth: 1, marginBottom: Space.sm, gap: Space.xs },
   explanationTitle: { fontFamily: Fonts.semibold, fontSize: Size.base },
   explanationText:  { fontFamily: Fonts.regular, fontSize: Size.sm, color: Colors.textSecondary, lineHeight: Size.sm * 1.5 },

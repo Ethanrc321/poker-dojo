@@ -8,10 +8,10 @@
 // completely separate apps — both can be installed on your phone at once.
 //
 // HOW IT WORKS:
-//   APP_ENV=development  →  bundle ID: com.tagpoker.trainer.dev
-//                           app name:  "TAG Poker [DEV]"
-//   APP_ENV=production   →  bundle ID: com.tagpoker.trainer
-//                           app name:  "TAG Poker Trainer"
+//   APP_ENV=development  →  bundle ID: com.pokerdojo.app.dev
+//                           app name:  "Poker Dojo [DEV]"
+//   APP_ENV=production   →  bundle ID: com.pokerdojo.app
+//                           app name:  "Poker Dojo"
 //
 // You never need to edit this file manually. Change APP_ENV in your .env file
 // or pass it as a command prefix (see the deployment guide).
@@ -22,7 +22,7 @@ const IS_PROD = process.env.APP_ENV === 'production';
 export default {
   expo: {
     // ── Identity ──────────────────────────────────────────────────────────────
-    name:    IS_PROD ? 'TAG Poker Trainer'  : 'TAG Poker [DEV]',
+    name:    IS_PROD ? 'Poker Dojo' : 'Poker Dojo [DEV]',
     slug:    'poker-trainer',
     version: '1.0.0',
 
@@ -36,16 +36,16 @@ export default {
     ios: {
       supportsTablet:   false,
       bundleIdentifier: IS_PROD
-        ? 'com.tagpoker.trainer'        // ← Live App Store version
-        : 'com.tagpoker.trainer.dev',   // ← TestFlight / personal test build
+        ? 'com.pokerdojo.app'        // ← Live App Store version
+        : 'com.pokerdojo.app.dev',   // ← TestFlight / personal test build
     },
 
     // ── Android (future) ──────────────────────────────────────────────────────
     android: {
       adaptiveIcon:    { backgroundColor: '#0a0a0a' },
       package:         IS_PROD
-        ? 'com.tagpoker.trainer'
-        : 'com.tagpoker.trainer.dev',
+        ? 'com.pokerdojo.app'
+        : 'com.pokerdojo.app.dev',
     },
 
     // ── Extra: expose APP_ENV to app code if needed ───────────────────────────

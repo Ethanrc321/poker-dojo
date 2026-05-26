@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { AppState, Alert } from 'react-native';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  scheduleStaminaRefillNotification,
+  cancelStaminaRefillNotification,
+} from './notifications.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stamina system — free-tier Preflop trainer
 //
-// • 25 hands per session
+// • 20 hands per session
 // • Depleted → watch a rewarded ad OR wait 2 hours (tracked while app is closed)
 // • Subscribers bypass this entirely (checked externally via useSubscription)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,31 +76,26 @@ export function useStamina() {
       const now = Date.now();
       setDepletedAt(now);
       await AsyncStorage.setItem(K.depleted, String(now));
+      scheduleStaminaRefillNotification(REFILL_MS);
     }
   }, []);
 
-  // Call after a rewarded ad completes to restore stamina
+  // Call after a rewarded ad completes to restore stamina.
+  // TODO: Replace the stub block below with a real rewarded ad call
+  //   e.g. react-native-google-mobile-ads RewardedAd.load() → show() → onEarned callback.
+  //   Call the restore block inside the ad's earned-reward callback, and resolve(false)
+  //   inside the ad's dismissed-without-reward / error callback.
   const refillFromAd = useCallback(() => {
-    return new Promise(resolve => {
-      Alert.alert(
-        'Refill Stamina',
-        // In production swap this Alert for a real rewarded ad (e.g. react-native-google-mobile-ads).
-        // Show the ad, then call the restore block in the completion callback.
-        'This will play a rewarded ad to refill your 25 hands.\n\n⚠️ Ad playback not yet configured — tap Continue to simulate.',
-        [
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-          {
-            text: 'Continue',
-            onPress: async () => {
-              staminaRef.current = MAX_STAMINA;
-              setStamina(MAX_STAMINA);
-              setDepletedAt(null);
-              await AsyncStorage.multiRemove([K.count, K.depleted]);
-              resolve(true);
-            },
-          },
-        ]
-      );
+    return new Promise(async resolve => {
+      // ── STUB (remove when real ads are wired) ──────────────────────────────
+      // Simulates a completed rewarded ad with no intermediate popup.
+      // ──────────────────────────────────────────────────────────────────────
+      staminaRef.current = MAX_STAMINA;
+      setStamina(MAX_STAMINA);
+      setDepletedAt(null);
+      await AsyncStorage.multiRemove([K.count, K.depleted]);
+      cancelStaminaRefillNotification();
+      resolve(true);
     });
   }, []);
 

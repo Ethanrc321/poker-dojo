@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Card from './Card.js';
 import { getNickname } from '../data/ranges.js';
 import {
@@ -8,12 +9,25 @@ import {
 } from '../data/preflopActions.js';
 import { RANGES } from '../engine/gto-engine.js';
 import { C, Colors, Fonts, Size, Space, Radius, T, POS_COLOR } from '../theme.js';
+import { triggerHaptic, Haptics } from '../utils/haptics.js';
 
 const GTO_KEY_MAP = {
   BTN_CO: 'BTN_vs_CO',
   SB_BTN: 'SB_vs_BTN',
   BB_BTN: 'BB_vs_BTN',
 };
+
+// Display name for hero positions — UTG1 is shown as UTG+1 in the UI.
+function heroDisplayName(pos) {
+  return pos === 'UTG1' ? 'UTG+1' : pos;
+}
+
+// Preposition + article appropriate for each seat.
+function heroPositionPhrase(pos) {
+  if (pos === 'BTN') return 'on the BTN';
+  const display = heroDisplayName(pos);
+  return `in the ${display}`;
+}
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const POS_ORDER = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
@@ -44,7 +58,7 @@ function parseHand(hand) {
   return [{ rank: r1, suit: s[0] }, { rank: r2, suit: s[1] !== s[0] ? s[1] : s[2] }];
 }
 
-export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }) {
+export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement, isEmpty, onStaminaEmpty }) {
   const [filterVillain, setFilterVillain] = useState(null);
   const [filterHero,    setFilterHero]    = useState(null);
   const [activeVillain, setActiveVillain] = useState(null);
@@ -99,11 +113,16 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
 
   function handleAction(action) {
     if (userAction !== null) return;
+    if (!isSubscribed && isEmpty) { onStaminaEmpty?.(); return; }
     setUserAction(action);
     const isCorrect = action === correctAction;
     setStats(s => ({ total: s.total + 1, correct: s.correct + (isCorrect ? 1 : 0) }));
     recordResult({ correct: isCorrect });
     if (!isSubscribed) decrement();
+    triggerHaptic(isCorrect
+      ? Haptics.NotificationFeedbackType.Success
+      : Haptics.NotificationFeedbackType.Error
+    );
   }
 
   const isCorrect = userAction !== null && userAction === correctAction;
@@ -126,7 +145,7 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
         <Text style={styles.filterLabel}>Opener:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <TouchableOpacity
-            onPress={() => { setFilterVillain(null); setFilterHero(null); newScenario(null, null); }}
+            onPress={() => { if (!isSubscribed && isEmpty) { onStaminaEmpty?.(); return; } setFilterVillain(null); setFilterHero(null); newScenario(null, null); }}
             style={[styles.pill, !filterVillain && styles.pillActive]}
           >
             <Text style={[styles.pillText, !filterVillain && styles.pillTextActive]}>Any</Text>
@@ -134,7 +153,7 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
           {['UTG', 'HJ', 'CO', 'BTN', 'SB'].map(p => (
             <TouchableOpacity
               key={p}
-              onPress={() => { setFilterVillain(p); setFilterHero(null); newScenario(p, null); }}
+              onPress={() => { if (!isSubscribed && isEmpty) { onStaminaEmpty?.(); return; } setFilterVillain(p); setFilterHero(null); newScenario(p, null); }}
               style={[styles.pill, filterVillain === p && styles.pillActive]}
             >
               <Text style={[styles.pillText, filterVillain === p && styles.pillTextActive]}>{p}</Text>
@@ -148,7 +167,7 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
           <Text style={styles.filterLabel}>Your pos:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <TouchableOpacity
-              onPress={() => { setFilterHero(null); newScenario(filterVillain, null); }}
+              onPress={() => { if (!isSubscribed && isEmpty) { onStaminaEmpty?.(); return; } setFilterHero(null); newScenario(filterVillain, null); }}
               style={[styles.pill, !filterHero && styles.pillActive]}
             >
               <Text style={[styles.pillText, !filterHero && styles.pillTextActive]}>Any</Text>
@@ -156,7 +175,7 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
             {HERO_POSITIONS_FOR[filterVillain]?.map(p => (
               <TouchableOpacity
                 key={p}
-                onPress={() => { setFilterHero(p); newScenario(filterVillain, p); }}
+                onPress={() => { if (!isSubscribed && isEmpty) { onStaminaEmpty?.(); return; } setFilterHero(p); newScenario(filterVillain, p); }}
                 style={[styles.pill, filterHero === p && styles.pillActive]}
               >
                 <Text style={[styles.pillText, filterHero === p && styles.pillTextActive]}>{p}</Text>
@@ -172,8 +191,8 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
           <Text style={{ color: C.amber, fontWeight: '700' }}>{activeVillain} </Text>
           <Text style={{ color: '#aaa' }}>opens to </Text>
           <Text style={{ color: C.amber, fontWeight: '700' }}>{OPEN_SIZES[activeVillain]}</Text>
-          <Text style={{ color: '#aaa' }}>. Folds to you in </Text>
-          <Text style={{ color: C.green, fontWeight: '700' }}>{activeHero}</Text>
+          <Text style={{ color: '#aaa' }}>. Folds to you </Text>
+          <Text style={{ color: C.green, fontWeight: '700' }}>{heroPositionPhrase(activeHero)}</Text>
           <Text style={{ color: '#aaa' }}>.</Text>
         </Text>
 
@@ -236,9 +255,12 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
       ) : (
         <View style={[styles.feedbackBox, { borderColor: isCorrect ? '#166534' : '#92400e', backgroundColor: isCorrect ? 'rgba(0,128,0,0.1)' : 'rgba(180,83,9,0.1)' }]}>
           <View style={styles.feedbackHeader}>
-            <Text style={[styles.feedbackTitle, { color: isCorrect ? C.green : C.amber }]}>
-              {isCorrect ? '✓ Correct!' : 'Not Optimal'}
-            </Text>
+            <View style={styles.feedbackTitleRow}>
+              <Ionicons name={isCorrect ? 'checkmark-circle' : 'alert-circle'} size={16} color={isCorrect ? C.green : C.amber} />
+              <Text style={[styles.feedbackTitle, { color: isCorrect ? C.green : C.amber }]}>
+                {isCorrect ? 'Correct!' : 'Not Optimal'}
+              </Text>
+            </View>
             <View style={[styles.correctBadge, {
               backgroundColor: correctAction === '3bet' ? 'rgba(104,168,112,0.15)' : correctAction === 'call' ? 'rgba(85,119,224,0.15)' : 'rgba(224,69,69,0.15)',
               borderColor: correctAction === '3bet' ? C.green : correctAction === 'call' ? C.blue : C.red,
@@ -255,7 +277,7 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
           </Text>
           {gtoFreqs && (
             <View style={styles.gtoFreqBox}>
-              <Text style={styles.gtoFreqTitle}>GTO Frequencies ({activeHero} vs {activeVillain})</Text>
+              <Text style={styles.gtoFreqTitle}>GTO Frequencies ({heroDisplayName(activeHero)} vs {activeVillain})</Text>
               <Text style={styles.gtoFreqLine}>
                 <Text style={{ color: C.green }}>3-Bet: </Text>{Math.round(gtoFreqs[0] * 100)}%{'  '}
                 <Text style={{ color: C.blue }}>Call: </Text>{Math.round(gtoFreqs[1] * 100)}%{'  '}
@@ -266,7 +288,7 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
         </View>
       )}
 
-      {userAction !== null && (
+      {userAction !== null && (!isEmpty || isSubscribed) && (
         <TouchableOpacity onPress={next} style={styles.nextBtn} activeOpacity={0.85}>
           <Text style={styles.nextBtnText}>Next Hand →</Text>
         </TouchableOpacity>
@@ -275,7 +297,7 @@ export default function VsRaiseTrainer({ recordResult, isSubscribed, decrement }
       {/* Range reference (shown after answering) */}
       {userAction !== null && ranges && (
         <View style={styles.rangePanel}>
-          <Text style={styles.rangePanelTitle}>{activeHero} vs {activeVillain} open — Range</Text>
+          <Text style={styles.rangePanelTitle}>{heroDisplayName(activeHero)} vs {activeVillain} open — Range</Text>
           <Text style={styles.rangeLine}>
             <Text style={{ color: C.green, fontWeight: '700' }}>3-Bet: </Text>
             <Text style={{ color: '#666' }}>{[...ranges.threebet].join(', ')}</Text>
@@ -331,6 +353,7 @@ const styles = StyleSheet.create({
 
   feedbackBox:      { borderRadius: Radius.lg, padding: Space.base, borderWidth: 1, marginBottom: Space.sm, gap: Space.xs },
   feedbackHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  feedbackTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   feedbackTitle:    { fontFamily: Fonts.semibold, fontSize: Size.md },
   correctBadge:     { paddingHorizontal: Space.xs, paddingVertical: Space.xxs, borderRadius: Radius.sm, borderWidth: 1 },
   correctBadgeText: { fontFamily: Fonts.semibold, fontSize: Size.xs },

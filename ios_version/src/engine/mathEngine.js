@@ -189,28 +189,40 @@ function shuffle(arr) {
   return a;
 }
 
+/** Pick a random element from an array. */
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
 /**
- * Picks 3 wrong-answer distractors from a reference table that are at least
- * `minGap` percentage points away from the correct answer.
- * Falls back to a set of well-spaced anchors if the table doesn't have enough.
- *
- * @param {Array<{ans?: number, equityNeeded?: number, mdf?: number, alpha?: number}>} table
- * @param {number} correctAns
- * @param {number} minGap
- * @returns {number[]} - Array of 3 distractor values
+ * Generates 3 wrong-answer distractors near the correct answer.
+ * Does NOT use a lookup table — works for any computed correct value.
+ * Offsets are randomised so distractors vary each time.
  */
-function pickDistractors(table, correctAns, minGap = 8) {
-  // Normalise: each row may use .ans (legacy) or the named field
-  const values = table.map(r => r.ans ?? r.equityNeeded ?? r.mdf ?? r.alpha);
-  const far = shuffle(values.filter(v => Math.abs(v - correctAns) >= minGap));
-  const result = far.slice(0, 3);
-  const fallbacks = [10, 17, 20, 25, 30, 33, 40, 43, 50, 57, 60, 67, 75, 80];
-  for (const v of fallbacks) {
+function nearbyDistractors(correct, min = 5, max = 95) {
+  const offsets = shuffle([4, 5, 6, 7, 8, 10, 12, 13, 15, 17, 20]);
+  const result = [];
+  for (const off of offsets) {
     if (result.length >= 3) break;
-    if (v !== correctAns && Math.abs(v - correctAns) >= minGap && !result.includes(v)) result.push(v);
+    for (const candidate of [correct - off, correct + off]) {
+      if (
+        candidate >= min && candidate <= max &&
+        candidate !== correct &&
+        !result.includes(candidate)
+      ) { result.push(candidate); break; }
+    }
+  }
+  // Fallback if still short
+  const anchors = [10, 17, 20, 25, 28, 33, 38, 40, 43, 50, 55, 60, 67, 70, 75, 80];
+  for (const v of shuffle(anchors)) {
+    if (result.length >= 3) break;
+    if (v !== correct && !result.includes(v)) result.push(v);
   }
   return result.slice(0, 3);
 }
+
+// Wide realistic poker bet-sizing options (% of pot)
+const BET_PCTS = [20, 25, 28, 30, 33, 38, 40, 45, 50, 55, 60, 65, 67, 70, 75, 80, 90, 100, 110, 125, 133, 150];
+// Wide realistic pot sizes in bb
+const POT_SIZES = [6, 7, 8, 9, 10, 11, 12, 14, 15, 17, 18, 20, 22, 25, 28, 30, 33, 35, 40, 45, 50, 55, 60, 70, 75, 80, 90, 100, 110, 120, 140, 150, 175, 200];
 
 /**
  * @typedef {Object} DrillQuestion
@@ -226,22 +238,23 @@ function pickDistractors(table, correctAns, minGap = 8) {
 
 /**
  * Generates a randomised Pot Odds drill question.
+ * Inputs are fully continuous — no lookup table used for selection.
  * @returns {DrillQuestion}
  */
 function potOddsQuestion() {
-  const row    = POT_ODDS_TABLE[Math.floor(Math.random() * POT_ODDS_TABLE.length)];
-  const correct = row.equityNeeded;
-  const pot    = [20, 30, 40, 50, 60, 80, 100][Math.floor(Math.random() * 7)];
-  const betAmt = Math.round(pot * row.betPct / 100);
-  const totalPot = pot + betAmt * 2;
-  const options  = shuffle([correct, ...pickDistractors(POT_ODDS_TABLE, correct)]).map(v => ({ label: v + '%', value: v }));
+  const pot    = pick(POT_SIZES);
+  const betPct = pick(BET_PCTS);
+  const bet    = Math.max(1, Math.round(pot * betPct / 100));
+  const total  = pot + bet * 2; // pot + villain bet + hero call
+  const correct = Math.round(bet / total * 100);
+  const options = shuffle([correct, ...nearbyDistractors(correct, 10, 67)]).map(v => ({ label: v + '%', value: v }));
 
   return {
     type: 'potodds',
-    question: `Pot: $${pot}. Villain bets $${betAmt} (${row.betPct}% pot).\nWhat equity do you need to call?`,
+    question: `Pot: ${pot}bb. Villain bets ${bet}bb (~${betPct}% pot).\nWhat equity do you need to call?`,
     options,
     correct,
-    explanation: `Pot Odds = Call ÷ (Call + Total Pot) = ${betAmt} ÷ ${totalPot} ≈ ${correct}%.\nYou need at least ${correct}% equity to break even.`,
+    explanation: `Pot Odds = Call ÷ (Call + Total Pot) = ${bet} ÷ ${total} ≈ ${correct}%.\nYou need at least ${correct}% equity to break even on the call.`,
     formula: 'Call ÷ (Call + Total Pot After Call)',
   };
 }
@@ -251,18 +264,18 @@ function potOddsQuestion() {
  * @returns {DrillQuestion}
  */
 function mdfQuestion() {
-  const row    = MDF_TABLE[Math.floor(Math.random() * MDF_TABLE.length)];
-  const correct = row.mdf;
-  const pot    = [20, 30, 40, 50, 60, 80, 100][Math.floor(Math.random() * 7)];
-  const betAmt = Math.round(pot * row.betPct / 100);
-  const options  = shuffle([correct, ...pickDistractors(MDF_TABLE, correct)]).map(v => ({ label: v + '%', value: v }));
+  const pot    = pick(POT_SIZES);
+  const betPct = pick(BET_PCTS);
+  const bet    = Math.max(1, Math.round(pot * betPct / 100));
+  const correct = Math.round(pot / (pot + bet) * 100);
+  const options = shuffle([correct, ...nearbyDistractors(correct, 30, 95)]).map(v => ({ label: v + '%', value: v }));
 
   return {
     type: 'mdf',
-    question: `Pot: $${pot}. Villain bets $${betAmt} (${row.betPct}% pot).\nHow often must you continue (MDF) to deny a profitable bluff?`,
+    question: `Pot: ${pot}bb. Villain bets ${bet}bb (~${betPct}% pot).\nHow often must you continue (MDF) to prevent villain bluffing profitably?`,
     options,
     correct,
-    explanation: `MDF = Pot ÷ (Pot + Bet) = ${pot} ÷ ${pot + betAmt} ≈ ${correct}%.\nFolding more than ${100 - correct}% makes every bluff profitable for villain.`,
+    explanation: `MDF = Pot ÷ (Pot + Bet) = ${pot} ÷ ${pot + bet} ≈ ${correct}%.\nFolding more than ${100 - correct}% lets villain bluff any two cards for an immediate profit.`,
     formula: 'Pot ÷ (Pot + Bet)',
   };
 }
@@ -272,31 +285,32 @@ function mdfQuestion() {
  * @returns {DrillQuestion}
  */
 function alphaQuestion() {
-  const row    = ALPHA_TABLE[Math.floor(Math.random() * ALPHA_TABLE.length)];
-  const correct = row.alpha;
-  const pot    = [20, 30, 40, 50, 60, 80, 100][Math.floor(Math.random() * 7)];
-  const betAmt = Math.round(pot * row.betPct / 100);
-  const options  = shuffle([correct, ...pickDistractors(ALPHA_TABLE, correct)]).map(v => ({ label: v + '%', value: v }));
+  const pot    = pick(POT_SIZES);
+  const betPct = pick(BET_PCTS);
+  const bet    = Math.max(1, Math.round(pot * betPct / 100));
+  const correct = Math.round(bet / (bet + pot) * 100);
+  const options = shuffle([correct, ...nearbyDistractors(correct, 10, 70)]).map(v => ({ label: v + '%', value: v }));
 
   return {
     type: 'alpha',
-    question: `Pot: $${pot}. You bet $${betAmt} (${row.betPct}% pot) as a bluff.\nWhat fold frequency (Alpha) makes this bet immediately profitable?`,
+    question: `Pot: ${pot}bb. You bet ${bet}bb (~${betPct}% pot) as a bluff.\nWhat fold frequency (Alpha) makes this bet immediately profitable?`,
     options,
     correct,
-    explanation: `Alpha = Bet ÷ (Bet + Pot) = ${betAmt} ÷ ${betAmt + pot} ≈ ${correct}%.\nAlternatively: Alpha = 1 − MDF. If villain folds more than ${correct}%, the bluff is instantly profitable.`,
+    explanation: `Alpha = Bet ÷ (Bet + Pot) = ${bet} ÷ ${bet + pot} ≈ ${correct}%.\nEquivalently: Alpha = 1 − MDF = 1 − ${100 - correct}% = ${correct}%. If villain folds more than ${correct}% you profit immediately.`,
     formula: 'Bet ÷ (Bet + Pot)   ·   or: 1 − MDF',
   };
 }
 
 /**
  * Generates a randomised SPR classification drill question.
+ * Uses a wide continuous range of stack and pot sizes.
  * @returns {DrillQuestion}
  */
 function sprQuestion() {
-  const POTS   = [10, 15, 20, 30, 40, 50];
-  const STACKS = [30, 50, 80, 100, 150, 200, 300];
-  const pot    = POTS[Math.floor(Math.random() * POTS.length)];
-  const stack  = STACKS[Math.floor(Math.random() * STACKS.length)];
+  const POTS   = [5, 6, 7, 8, 9, 10, 12, 14, 15, 17, 18, 20, 22, 25, 28, 30, 33, 35, 40, 45, 50, 55, 60];
+  const STACKS = [10, 12, 14, 15, 18, 20, 22, 25, 28, 30, 35, 40, 45, 50, 55, 60, 70, 75, 80, 90, 100, 110, 120, 140, 150, 175, 200, 225, 250, 300, 350, 400];
+  const pot   = pick(POTS);
+  const stack = pick(STACKS);
   const { ratio: spr, label: correct, stackOffRequirement } = calculateSPR(stack, pot);
 
   const allLabels = [
@@ -306,29 +320,30 @@ function sprQuestion() {
 
   return {
     type: 'spr',
-    question: `Effective stack: $${stack}. Pot on the flop: $${pot}. Calculate the SPR and classify it.`,
+    question: `Effective stack: ${stack}bb. Pot on the flop: ${pot}bb.\nCalculate the SPR and classify it.`,
     options,
     correct,
     spr,
-    explanation: `SPR = Stack ÷ Pot = ${stack} ÷ ${pot} = ${spr}. Classification: ${correct}. Stack off with: ${stackOffRequirement}.`,
+    explanation: `SPR = Stack ÷ Pot = ${stack} ÷ ${pot} = ${spr}. Classification: ${correct}.\nStack-off requirement at this depth: ${stackOffRequirement}.`,
     formula: 'Effective Stack ÷ Pot Size on Flop',
   };
 }
 
 /**
  * Generates a randomised EV (call vs fold) drill question.
+ * Uses a wide continuous range of equity, pot, and call sizes.
  * @returns {DrillQuestion}
  */
 function evQuestion() {
-  const EQUITIES = [25, 30, 35, 40, 45, 50];
-  const CALLS    = [20, 30, 40, 50, 60];
-  const POTS     = [80, 100, 120, 150, 200];
-  const eq   = EQUITIES[Math.floor(Math.random() * EQUITIES.length)];
-  const pot  = POTS[Math.floor(Math.random() * POTS.length)];
-  const call = CALLS[Math.floor(Math.random() * CALLS.length)];
+  const EQUITIES = [15, 17, 18, 20, 22, 24, 25, 27, 28, 30, 32, 33, 35, 37, 38, 40, 42, 43, 45, 47, 48, 50, 52, 55, 58, 60, 62, 65];
+  const CALLS    = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 17, 18, 20, 22, 25, 28, 30, 33, 35, 40, 45, 50, 55, 60, 70, 75];
+  const eq   = pick(EQUITIES);
+  const pot  = pick(POT_SIZES);
+  const call = pick(CALLS);
 
   const totalPot = pot + call;
   const { ev, decision: correct } = calculateEV(eq, totalPot, call);
+  const evDisplay = Math.round(ev * 10) / 10;
 
   const options = shuffle([
     { label: 'Call (positive EV)', value: 'Call (positive EV)' },
@@ -337,11 +352,11 @@ function evQuestion() {
 
   return {
     type: 'ev',
-    question: `You have ${eq}% equity. Pot: $${pot}. Villain bets $${call}. You must call $${call}.\nEV = (${eq}% × $${totalPot}) − $${call}. Should you call or fold?`,
+    question: `You have ${eq}% equity. Pot: ${pot}bb. Villain bets ${call}bb.\nEV = (${eq}% × ${totalPot}bb) − ${call}bb. Call or fold?`,
     options,
     correct,
     ev,
-    explanation: `EV = (Equity × Total Pot) − Call = (${eq / 100} × $${totalPot}) − $${call} = $${Math.round(eq / 100 * totalPot * 100) / 100} − $${call} = $${ev}.\nThis is a ${ev > 0 ? 'POSITIVE' : 'NEGATIVE'} EV call — you should ${ev > 0 ? 'CALL' : 'FOLD'}.`,
+    explanation: `EV = (Equity × Total Pot) − Call\n= (${eq / 100} × ${totalPot}) − ${call}\n= ${Math.round(eq / 100 * totalPot * 10) / 10} − ${call} = ${evDisplay}bb.\nThis is ${ev > 0 ? 'POSITIVE EV → CALL' : 'NEGATIVE EV → FOLD'}.`,
     formula: 'EV = (Equity × Total Pot) − Call Amount',
   };
 }

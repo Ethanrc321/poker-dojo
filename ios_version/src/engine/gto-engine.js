@@ -524,6 +524,16 @@ export const EVALUATOR = {
 
 // ── Section 7: Quiz Generator ─────────────────────────────────
 
+// Returns a grammatically correct position context string for quiz questions.
+// UTG is first to act — nothing has folded to them. Other positions get
+// position-appropriate prepositions ("on the BTN", "in the SB", etc.).
+function positionContext(pos) {
+  if (pos === 'UTG') return 'You are opening from UTG (first to act)';
+  if (pos === 'BTN') return 'Action folds to you on the BTN';
+  if (pos === 'SB')  return 'Action folds to you in the SB';
+  return `Action folds to you in the ${pos}`;
+}
+
 export const QUIZZES = {
   generateRangeQuiz() {
     const positions = Object.keys(GTO_OPEN_RANGES);
@@ -537,7 +547,7 @@ export const QUIZZES = {
     return {
       id: `range_${position}_${hand}_${Date.now()}`,
       type: 'preflop_range',
-      question: `Action is folded to you in ${position}. You hold ${hand}. Do you raise or fold?`,
+      question: `${positionContext(position)}. You hold ${hand}. Do you raise or fold?`,
       hand, position,
       choices: ['raise', 'fold'],
       correctAnswer: gtoAction,

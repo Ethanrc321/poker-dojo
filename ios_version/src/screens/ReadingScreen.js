@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { HAND_READING_QUIZZES } from '../data/scenarios.js';
+import { Ionicons } from '@expo/vector-icons';
+import { generateHandReadingQuestion } from '../data/handReadingEngine.js';
 import { C, T, Colors, Fonts, Size, Space, Radius } from '../theme.js';
 
 const TIPS = [
@@ -14,14 +15,13 @@ const TIPS = [
 
 export default function ReadingScreen({ recordResult }) {
   const insets = useSafeAreaInsets();
-  const total = HAND_READING_QUIZZES.length;
-  const [order,    setOrder]    = useState(() => { const a = Array.from({ length: total }, (_, i) => i); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; });
-  const [pos,      setPos]      = useState(0);
-  const [chosen,   setChosen]   = useState(null);
-  const [stats,    setStats]    = useState({ total: 0, correct: 0 });
-  const [showTips, setShowTips] = useState(false);
+  const [currentQ,  setCurrentQ]  = useState(() => generateHandReadingQuestion());
+  const [handCount, setHandCount] = useState(1);
+  const [chosen,    setChosen]    = useState(null);
+  const [stats,     setStats]     = useState({ total: 0, correct: 0 });
+  const [showTips,  setShowTips]  = useState(false);
 
-  const q = HAND_READING_QUIZZES[order[pos]];
+  const q = currentQ;
 
   function handleAnswer(val) {
     if (chosen !== null) return;
@@ -32,21 +32,13 @@ export default function ReadingScreen({ recordResult }) {
   }
 
   function next() {
-    const nextPos = pos + 1;
-    if (nextPos >= total) {
-      const a = Array.from({ length: total }, (_, i) => i);
-      for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-      setOrder(a);
-      setPos(0);
-    } else {
-      setPos(nextPos);
-    }
+    setCurrentQ(generateHandReadingQuestion());
+    setHandCount(n => n + 1);
     setChosen(null);
   }
 
   const isCorrect = chosen !== null && chosen === q.correct;
   const pct = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : null;
-  const progress = ((pos + 1) / total) * 100;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -62,12 +54,9 @@ export default function ReadingScreen({ recordResult }) {
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-      {/* Progress bar */}
+      {/* Session counter */}
       <View style={styles.progressRow}>
-        <Text style={styles.progressLabel}>{pos + 1} / {total}</Text>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
-        </View>
+        <Text style={styles.progressLabel}>Hand #{handCount}</Text>
       </View>
 
       {/* Scenario card */}
@@ -97,11 +86,11 @@ export default function ReadingScreen({ recordResult }) {
                 style={[styles.option, { backgroundColor: bg, borderColor: border }]}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.optionText, { color: textColor }]}>
-                  {chosen !== null && isRight ? '✓ ' : ''}
-                  {isSel && !isRight ? '✗ ' : ''}
-                  {opt.label}
-                </Text>
+                <View style={styles.optionInner}>
+                  {chosen !== null && isRight && <Ionicons name="checkmark" size={14} color={textColor} />}
+                  {isSel && !isRight && <Ionicons name="close" size={14} color={textColor} />}
+                  <Text style={[styles.optionText, { color: textColor, flex: 1 }]}>{opt.label}</Text>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -114,16 +103,22 @@ export default function ReadingScreen({ recordResult }) {
           borderColor: isCorrect ? '#166534' : '#92400e',
           backgroundColor: isCorrect ? 'rgba(0,128,0,0.1)' : 'rgba(180,83,9,0.1)',
         }]}>
-          <Text style={[styles.explanationTitle, { color: isCorrect ? C.green : C.amber }]}>
-            {isCorrect ? '✓ Correct!' : 'Not Quite'}
-          </Text>
+          <View style={styles.feedbackTitleRow}>
+            <Ionicons name={isCorrect ? 'checkmark-circle' : 'alert-circle'} size={16} color={isCorrect ? C.green : C.amber} />
+            <Text style={[styles.explanationTitle, { color: isCorrect ? C.green : C.amber }]}>
+              {isCorrect ? 'Correct!' : 'Not Quite'}
+            </Text>
+          </View>
           <Text style={styles.explanationText}>{q.explanation}</Text>
         </View>
       )}
 
       {chosen !== null && (
         <TouchableOpacity onPress={next} style={styles.nextBtn} activeOpacity={0.85}>
-          <Text style={styles.nextBtnText}>Next Scenario →</Text>
+          <View style={styles.nextBtnInner}>
+            <Text style={styles.nextBtnText}>Next Scenario</Text>
+            <Ionicons name="arrow-forward" size={16} color={Colors.textPrimary} />
+          </View>
         </TouchableOpacity>
       )}
 
@@ -156,10 +151,8 @@ const styles = StyleSheet.create({
   title:         { ...T.screenTitle },
   subtitle:      { ...T.subtitle, marginTop: Space.xxs },
   pct:           { fontFamily: Fonts.semibold, fontSize: Size.md, fontVariant: ['tabular-nums'] },
-  progressRow:   { flexDirection: 'row', alignItems: 'center', gap: Space.sm, marginBottom: Space.sm },
-  progressLabel: { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textTertiary, width: 36 },
-  progressTrack: { flex: 1, height: 4, backgroundColor: Colors.bg3, borderRadius: Radius.xs, overflow: 'hidden' },
-  progressFill:  { height: '100%', backgroundColor: C.green, borderRadius: Radius.xs },
+  progressRow:   { flexDirection: 'row', alignItems: 'center', marginBottom: Space.sm },
+  progressLabel: { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textTertiary },
   scenarioCard:  { backgroundColor: Colors.bg2, borderRadius: Radius.lg, padding: Space.base, marginBottom: Space.sm, borderWidth: 1, borderColor: Colors.borderSubtle },
   scenarioBg:    { backgroundColor: Colors.bg3, borderRadius: Radius.md, padding: Space.base, marginBottom: Space.base },
   scenarioLabel: { ...T.sectionLabel, marginBottom: Space.xs },
@@ -167,7 +160,10 @@ const styles = StyleSheet.create({
   questionPrompt:{ fontFamily: Fonts.medium, fontSize: Size.sm, color: Colors.textPrimary, marginBottom: Space.sm },
   options:       { gap: Space.xs },
   option:        { paddingHorizontal: Space.base, paddingVertical: Space.sm, borderRadius: Radius.md, borderWidth: 1 },
-  optionText:    { fontFamily: Fonts.regular, fontSize: Size.sm, lineHeight: Size.sm * 1.45 },
+  optionInner:      { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optionText:       { fontFamily: Fonts.regular, fontSize: Size.sm, lineHeight: Size.sm * 1.45 },
+  feedbackTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  nextBtnInner:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   explanation:      { borderRadius: Radius.lg, padding: Space.base, borderWidth: 1, marginBottom: Space.sm, gap: Space.xs },
   explanationTitle: { fontFamily: Fonts.semibold, fontSize: Size.md },
   explanationText:  { fontFamily: Fonts.regular, fontSize: Size.sm, color: Colors.textSecondary, lineHeight: Size.sm * 1.5 },

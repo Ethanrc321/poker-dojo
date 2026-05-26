@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View, Pressable, TouchableWithoutFeedback,
   StyleSheet, Dimensions, Animated, Easing,
@@ -41,10 +41,25 @@ export default function SpadeMenu({ tabs, currentScreen, onNavigate }) {
   const itemCount   = tabs.length;
   const arcPositions = useMemo(() => buildArcPositions(itemCount), [itemCount]);
 
-  const itemAnims   = useRef(Array.from({ length: itemCount }, () => new Animated.Value(0))).current;
-  const overlayAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim  = useRef(new Animated.Value(0)).current;
-  const scaleAnim   = useRef(new Animated.Value(1)).current;
+  const itemAnims      = useRef(Array.from({ length: itemCount }, () => new Animated.Value(0))).current;
+  const overlayAnim    = useRef(new Animated.Value(0)).current;
+  const rotateAnim     = useRef(new Animated.Value(0)).current;
+  const scaleAnim      = useRef(new Animated.Value(1)).current;
+  const navFromMenuRef = useRef(false); // true when SpadeMenu itself triggered the navigation
+
+  // If the screen changed externally (e.g. dashboard trainer cards), close instantly — no blur linger
+  useEffect(() => {
+    if (isOpen && !navFromMenuRef.current) {
+      setIsOpen(false);
+      overlayAnim.stopAnimation();
+      rotateAnim.stopAnimation();
+      itemAnims.forEach(a => a.stopAnimation());
+      overlayAnim.setValue(0);
+      rotateAnim.setValue(0);
+      itemAnims.forEach(a => a.setValue(0));
+    }
+    navFromMenuRef.current = false;
+  }, [currentScreen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = useCallback(() => {
     setIsOpen(true);
@@ -71,12 +86,28 @@ export default function SpadeMenu({ tabs, currentScreen, onNavigate }) {
     ]).start();
   }, []);
 
-  // Instant dismiss — used when navigating so there's zero animation delay
-  const closeInstant = useCallback(() => {
+  // Nav dismiss — items collapse immediately so they're out of the way,
+  // then the blur fades last so the screen switch happens while still blurred.
+  const closeForNav = useCallback(() => {
+    navFromMenuRef.current = true; // tells the currentScreen effect to skip instant-close
     setIsOpen(false);
-    overlayAnim.stopAnimation(); overlayAnim.setValue(0);
-    rotateAnim.stopAnimation();  rotateAnim.setValue(0);
-    itemAnims.forEach(a => { a.stopAnimation(); a.setValue(0); });
+    overlayAnim.stopAnimation();
+    rotateAnim.stopAnimation();
+    itemAnims.forEach(a => a.stopAnimation());
+
+    // Items + trigger collapse quickly
+    Animated.parallel([
+      Animated.timing(rotateAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
+      Animated.parallel(
+        itemAnims.map(a => Animated.timing(a, { toValue: 0, duration: 90, easing: Easing.in(Easing.ease), useNativeDriver: true }))
+      ),
+    ]).start();
+
+    // Blur lingers briefly, then fades out last
+    Animated.sequence([
+      Animated.delay(80),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 165, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+    ]).start();
   }, []);
 
   const onTriggerPress = useCallback(() => {
@@ -127,7 +158,7 @@ export default function SpadeMenu({ tabs, currentScreen, onNavigate }) {
             ]}
           >
             <Pressable
-              onPressIn={() => { onNavigate(tab.id); closeInstant(); }}
+              onPressIn={() => { onNavigate(tab.id); closeForNav(); }}
               style={[styles.arcCircle, isActive && styles.arcCircleActive]}
               accessibilityLabel={tab.label}
               accessibilityRole="button"

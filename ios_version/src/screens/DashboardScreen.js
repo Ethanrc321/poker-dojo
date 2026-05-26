@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AcesIcon from '../components/AcesIcon.js';
 import { useSubscription } from '../context/SubscriptionContext.js';
+import { DAILY_GOAL } from '../utils/streak.js';
 import { C, POS_COLOR, T, Colors, Space, Radius, Fonts, Size } from '../theme.js';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -40,7 +41,7 @@ function perfLabel(p) {
   return 'Needs Work';
 }
 
-export default function DashboardScreen({ stats, resetStats, onNavigate }) {
+export default function DashboardScreen({ stats, resetStats, onNavigate, streak = 0, longestStreak = 0, practicedToday = false, dailyCount = 0 }) {
   const insets = useSafeAreaInsets();
   const { isSubscribed } = useSubscription();
 
@@ -73,8 +74,8 @@ export default function DashboardScreen({ stats, resetStats, onNavigate }) {
       {/* ── Header ─────────────────────────────────────────────── */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>TAG Poker Trainer</Text>
-          <Text style={styles.subtitle}>Tight-Aggressive · GTO-calibrated · 6-max</Text>
+          <Text style={styles.title}>Poker Dojo</Text>
+          <Text style={styles.subtitle}>GTO-calibrated · 6-max training</Text>
         </View>
         <TouchableOpacity onPress={() => onNavigate('Settings')} style={styles.gearIcon}>
           <Ionicons name="settings-outline" size={20} color="#444" />
@@ -85,6 +86,48 @@ export default function DashboardScreen({ stats, resetStats, onNavigate }) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+
+      {/* ── Streak Card ─────────────────────────────────────────── */}
+      <View style={styles.streakCard}>
+        {/* Left: flame + count */}
+        <View style={styles.streakLeft}>
+          <Ionicons name="flame" size={36} color={C.amber} />
+          <View style={{ alignItems: 'center' }}>
+            <Text style={styles.streakCount}>{streak}</Text>
+            <Text style={styles.streakLabel}>day streak</Text>
+          </View>
+        </View>
+
+        {/* Divider */}
+        <View style={styles.streakDivider} />
+
+        {/* Right: today badge + progress + longest */}
+        <View style={styles.streakRight}>
+          <View style={[
+            styles.todayBadge,
+            practicedToday
+              ? { backgroundColor: 'rgba(104,168,112,0.15)', borderColor: 'rgba(104,168,112,0.35)' }
+              : { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: Colors.borderSubtle },
+          ]}>
+            <Ionicons
+              name={practicedToday ? 'checkmark-circle' : 'time-outline'}
+              size={13}
+              color={practicedToday ? C.green : Colors.textTertiary}
+            />
+            <Text style={[styles.todayBadgeText, { color: practicedToday ? C.green : Colors.textTertiary }]}>
+              {practicedToday ? `Done — ${DAILY_GOAL}/${DAILY_GOAL} hands` : `${dailyCount}/${DAILY_GOAL} hands today`}
+            </Text>
+          </View>
+          {!practicedToday && dailyCount > 0 && (
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${Math.min((dailyCount / DAILY_GOAL) * 100, 100)}%` }]} />
+            </View>
+          )}
+          {longestStreak > 0 && (
+            <Text style={styles.longestText}>Best: {longestStreak} days</Text>
+          )}
+        </View>
+      </View>
 
       {/* ── Quick Nav Grid ──────────────────────────────────────── */}
       <View style={styles.navSection}>
@@ -393,4 +436,28 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: Space.xl, gap: Space.sm },
   emptyTitle: { fontFamily: Fonts.semibold, fontSize: Size.md, color: Colors.textPrimary },
   emptyDesc:  { fontFamily: Fonts.regular, fontSize: Size.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: Size.sm * 1.5 },
+
+  // Streak card
+  streakCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    paddingVertical: Space.sm,
+    paddingHorizontal: Space.base,
+    marginBottom: Space.lg,
+    gap: Space.base,
+  },
+  streakLeft:   { flexDirection: 'row', alignItems: 'center', gap: Space.xs },
+  streakCount:  { fontFamily: Fonts.semibold, fontSize: Size.xl, color: Colors.textPrimary },
+  streakLabel:  { fontFamily: Fonts.regular, fontSize: Size.xxs, color: Colors.textTertiary, marginTop: 1 },
+  streakDivider:{ width: 1, height: 36, backgroundColor: Colors.borderSubtle },
+  streakRight:  { flex: 1, gap: Space.xxs },
+  todayBadge:    { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1 },
+  todayBadgeText:{ fontFamily: Fonts.semibold, fontSize: Size.xxs },
+  progressTrack: { height: 3, backgroundColor: Colors.bg3, borderRadius: Radius.full, overflow: 'hidden', width: '100%' },
+  progressFill:  { height: '100%', backgroundColor: C.amber, borderRadius: Radius.full },
+  longestText:   { fontFamily: Fonts.regular, fontSize: Size.xxs, color: Colors.textTertiary, marginLeft: 2 },
 });

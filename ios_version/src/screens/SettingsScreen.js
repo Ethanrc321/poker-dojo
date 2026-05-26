@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  Image, StyleSheet, Alert, Linking,
+  Image, StyleSheet, Alert, Linking, Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext.js';
 import { useSubscription } from '../context/SubscriptionContext.js';
 import { C, Colors, Fonts, Size, Space, Radius, T } from '../theme.js';
+import { getHapticsEnabled, setHapticsEnabled } from '../utils/haptics.js';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -49,13 +50,19 @@ function SectionLabel({ title }) {
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
-export default function SettingsScreen({ resetStats }) {
+export default function SettingsScreen({ resetStats, onNavigate }) {
   const insets = useSafeAreaInsets();
   const { user, loading, signIn, signOut } = useAuth();
   const {
-    isSubscribed, purchasing,
-    purchaseSubscription, restorePurchases, manageSubscription,
+    isSubscribed,
+    restorePurchases, manageSubscription,
   } = useSubscription();
+  const [hapticsOn, setHapticsOn] = useState(getHapticsEnabled());
+
+  function handleHapticsToggle(val) {
+    setHapticsOn(val);
+    setHapticsEnabled(val);
+  }
 
   function handleSignOut() {
     Alert.alert('Sign Out', 'Sign out of your Google account?', [
@@ -167,19 +174,34 @@ export default function SettingsScreen({ resetStats }) {
             <>
               <Divider />
               <TouchableOpacity
-                style={[styles.upgradeBtn, purchasing && styles.upgradeBtnDisabled]}
-                onPress={purchaseSubscription}
-                disabled={purchasing}
+                style={styles.upgradeBtn}
+                onPress={() => onNavigate?.('Subscription')}
                 activeOpacity={0.85}
               >
-                <Text style={styles.upgradeBtnText}>
-                  {purchasing ? 'Loading…' : 'Upgrade to Premium'}
-                </Text>
+                <Text style={styles.upgradeBtnText}>Start 7-Day Free Trial</Text>
               </TouchableOpacity>
               <Divider />
               <Row icon="refresh-outline" label="Restore Purchases" onPress={restorePurchases} />
             </>
           )}
+        </View>
+
+        {/* ── Preferences ──────────────────────────────────────────── */}
+        <SectionLabel title="PREFERENCES" />
+        <View style={styles.panel}>
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <Ionicons name="phone-portrait-outline" size={18} color={Colors.textSecondary} style={styles.rowIcon} />
+              <Text style={styles.rowLabel}>Haptic Feedback</Text>
+            </View>
+            <Switch
+              value={hapticsOn}
+              onValueChange={handleHapticsToggle}
+              trackColor={{ false: '#333', true: 'rgba(232,160,48,0.5)' }}
+              thumbColor={hapticsOn ? C.amber : '#888'}
+              ios_backgroundColor="#333"
+            />
+          </View>
         </View>
 
         {/* ── App Data ─────────────────────────────────────────────── */}

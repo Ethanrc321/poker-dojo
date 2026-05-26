@@ -19,7 +19,7 @@ const FEATURE_COPY = {
   },
   glossary: {
     title: 'Poker Glossary',
-    desc:  'Full glossary with definitions, examples, and TAG principles for every poker term.',
+    desc:  'Full glossary with definitions, examples, and GTO principles for every poker term.',
   },
   charts: {
     title: 'Advanced Charts',
@@ -27,15 +27,16 @@ const FEATURE_COPY = {
   },
   default: {
     title: 'Premium Feature',
-    desc:  'Unlock full access to every trainer, chart, and drill in TAG Poker Trainer.',
+    desc:  'Unlock full access to every trainer, chart, and drill in Poker Dojo.',
   },
 };
 
 const PERKS = [
+  'Ad Free',
+  'Unlimited training — no stamina limit',
   'Postflop, Math & Hand Reading trainers',
   'Advanced GTO charts & reference tables',
   'Complete poker glossary',
-  'Unlimited Preflop hands — no stamina limit',
 ];
 
 export default function PaywallGate({ feature = 'default', children, onUpgrade }) {

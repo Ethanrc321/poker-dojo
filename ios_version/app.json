@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "TAG Poker Trainer",
+    "name": "Poker Dojo",
     "slug": "poker-trainer",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,6 +13,14 @@
     },
     "android": {
       "adaptiveIcon": { "backgroundColor": "#0a0a0a" }
-    }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "iosDisplayInForeground": true
+        }
+      ]
+    ]
   }
 }
