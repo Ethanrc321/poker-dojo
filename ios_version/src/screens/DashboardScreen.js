@@ -3,8 +3,10 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AcesIcon from '../components/AcesIcon.js';
+import SkillGraph from '../components/SkillGraph.js';
 import { useSubscription } from '../context/SubscriptionContext.js';
 import { DAILY_GOAL } from '../utils/streak.js';
+import { getTier, getNextTier, getTierProgress, previewDelta } from '../utils/skillRating.js';
 import { C, POS_COLOR, T, Colors, Space, Radius, Fonts, Size } from '../theme.js';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -41,7 +43,7 @@ function perfLabel(p) {
   return 'Needs Work';
 }
 
-export default function DashboardScreen({ stats, resetStats, onNavigate, streak = 0, longestStreak = 0, practicedToday = false, dailyCount = 0 }) {
+export default function DashboardScreen({ stats, resetStats, onNavigate, streak = 0, longestStreak = 0, practicedToday = false, dailyCount = 0, skillRating = 800, ratingHistory = [] }) {
   const insets = useSafeAreaInsets();
   const { isSubscribed } = useSubscription();
 
@@ -57,6 +59,15 @@ export default function DashboardScreen({ stats, resetStats, onNavigate, streak 
     .sort((a, b) => b.p - a.p);
   const best  = rankedModules[0]  || null;
   const worst = rankedModules[rankedModules.length - 1] || null;
+
+  // Skill rating derived values
+  const tier         = getTier(skillRating);
+  const nextTier     = getNextTier(skillRating);
+  const tierProgress = getTierProgress(skillRating);
+  const { gain, loss } = previewDelta(skillRating);
+  const ratingDelta  = ratingHistory.length >= 2
+    ? skillRating - ratingHistory[0].rating
+    : 0;
 
   // Best and worst position
   const rankedPos = ['UTG','HJ','CO','BTN','SB','BB']
@@ -125,6 +136,64 @@ export default function DashboardScreen({ stats, resetStats, onNavigate, streak 
           )}
           {longestStreak > 0 && (
             <Text style={styles.longestText}>Best: {longestStreak} days</Text>
+          )}
+        </View>
+      </View>
+
+      {/* ── Skill Rating Card ───────────────────────────────────── */}
+      <View style={styles.ratingCard}>
+        {/* Top row: number + tier badge | delta */}
+        <View style={styles.ratingTopRow}>
+          <View style={styles.ratingLeft}>
+            <Text style={[styles.ratingNumber, { color: tier.color }]}>
+              {skillRating.toLocaleString()}
+            </Text>
+            <View style={[styles.tierBadge, { backgroundColor: tier.color + '22', borderColor: tier.color + '55' }]}>
+              <Text style={[styles.tierBadgeText, { color: tier.color }]}>{tier.label.toUpperCase()}</Text>
+            </View>
+          </View>
+          <View style={styles.ratingRight}>
+            {ratingDelta !== 0 && (
+              <Text style={[styles.ratingDelta, { color: ratingDelta > 0 ? C.green : C.red }]}>
+                {ratingDelta > 0 ? '+' : ''}{ratingDelta}
+              </Text>
+            )}
+            <Text style={styles.ratingDeltaLabel}>
+              {ratingDelta === 0 ? 'Start playing' : 'overall'}
+            </Text>
+            <View style={styles.deltaHints}>
+              <Text style={[styles.deltaHint, { color: C.green }]}>+{gain} ✓</Text>
+              <Text style={[styles.deltaHint, { color: C.red }]}>−{loss} ✗</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Graph */}
+        {ratingHistory.length >= 2 ? (
+          <View style={styles.graphWrap}>
+            <SkillGraph history={ratingHistory} color={tier.color} />
+          </View>
+        ) : (
+          <View style={styles.graphPlaceholder}>
+            <Text style={styles.graphPlaceholderText}>Play hands to build your rating graph</Text>
+          </View>
+        )}
+
+        {/* Tier progress bar */}
+        <View style={styles.tierProgressWrap}>
+          <View style={styles.tierProgressTrack}>
+            <View style={[
+              styles.tierProgressFill,
+              { width: `${Math.round(tierProgress * 100)}%`, backgroundColor: tier.color },
+            ]} />
+          </View>
+          {nextTier ? (
+            <Text style={styles.tierProgressLabel}>
+              {Math.round((1 - tierProgress) * (nextTier.min - tier.min))} pts to{' '}
+              <Text style={{ color: nextTier.color }}>{nextTier.label}</Text>
+            </Text>
+          ) : (
+            <Text style={[styles.tierProgressLabel, { color: tier.color }]}>Elite — max tier reached</Text>
           )}
         </View>
       </View>
@@ -436,6 +505,34 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: Space.xl, gap: Space.sm },
   emptyTitle: { fontFamily: Fonts.semibold, fontSize: Size.md, color: Colors.textPrimary },
   emptyDesc:  { fontFamily: Fonts.regular, fontSize: Size.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: Size.sm * 1.5 },
+
+  // Skill rating card
+  ratingCard: {
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    padding: Space.base,
+    marginBottom: Space.lg,
+    gap: Space.sm,
+  },
+  ratingTopRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  ratingLeft:      { gap: Space.xxs },
+  ratingNumber:    { fontFamily: Fonts.semibold, fontSize: 38, letterSpacing: -1, lineHeight: 42, fontVariant: ['tabular-nums'] },
+  tierBadge:       { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: Radius.full, borderWidth: 1 },
+  tierBadgeText:   { fontFamily: Fonts.semibold, fontSize: Size.xxs, letterSpacing: 0.8 },
+  ratingRight:     { alignItems: 'flex-end', gap: 2 },
+  ratingDelta:     { fontFamily: Fonts.semibold, fontSize: Size.lg, fontVariant: ['tabular-nums'] },
+  ratingDeltaLabel:{ fontFamily: Fonts.regular, fontSize: Size.xxs, color: Colors.textTertiary },
+  deltaHints:      { flexDirection: 'row', gap: Space.sm, marginTop: Space.xxs },
+  deltaHint:       { fontFamily: Fonts.regular, fontSize: Size.xxs, fontVariant: ['tabular-nums'] },
+  graphWrap:       { marginHorizontal: -Space.xxs },
+  graphPlaceholder:{ height: 84, alignItems: 'center', justifyContent: 'center' },
+  graphPlaceholderText: { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textTertiary, textAlign: 'center' },
+  tierProgressWrap:  { gap: Space.xxs },
+  tierProgressTrack: { height: 4, backgroundColor: Colors.bg3, borderRadius: Radius.full, overflow: 'hidden' },
+  tierProgressFill:  { height: '100%', borderRadius: Radius.full },
+  tierProgressLabel: { fontFamily: Fonts.regular, fontSize: Size.xxs, color: Colors.textTertiary },
 
   // Streak card
   streakCard: {

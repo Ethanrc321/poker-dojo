@@ -24,6 +24,7 @@ import { SubscriptionProvider }              from './src/context/SubscriptionCon
 import { useStreak }                         from './src/utils/streak.js';
 import { scheduleStreakReminder, cancelStreakReminder } from './src/utils/notifications.js';
 import { loadHapticsPreference } from './src/utils/haptics.js';
+import { loadSkillRating, saveSkillRating, calcNewRating } from './src/utils/skillRating.js';
 
 // ── Initial stats shape ───────────────────────────────────────────────────────
 const INITIAL_STATS = {
@@ -69,6 +70,8 @@ function AppContent() {
   const [currentScreen,   setCurrentScreen]   = useState('Home');
   const [stats,           setStats]           = useState(INITIAL_STATS);
   const [onboardingDone,  setOnboardingDone]  = useState(null); // null = loading
+  const [skillRating,     setSkillRating]     = useState(800);
+  const [ratingHistory,   setRatingHistory]   = useState([]);
 
   const { user, saveStats, loadStats } = useAuth();
   const cloudLoadedRef = useRef(false); // prevents initial load overwriting cloud data
@@ -76,6 +79,14 @@ function AppContent() {
 
   // Restore haptics preference on first mount
   useEffect(() => { loadHapticsPreference(); }, []);
+
+  // Load skill rating on mount
+  useEffect(() => {
+    loadSkillRating().then(({ rating, history }) => {
+      setSkillRating(rating);
+      setRatingHistory(history);
+    });
+  }, []);
 
   // Check if onboarding has been completed before
   useEffect(() => {
@@ -105,10 +116,22 @@ function AppContent() {
     return () => clearTimeout(t);
   }, [stats]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const recordResult = useCallback((module, { correct, position } = {}) => {
+  const recordResult = useCallback((module, { correct, position, minor = false } = {}) => {
     // Record practice day for streak — awards streak once DAILY_GOAL hands are reached
     recordPractice().then(result => {
       if (result.isNew) cancelStreakReminder(); // just earned today's streak — cancel reminder
+    });
+
+    // Update skill rating
+    setSkillRating(prev => {
+      const next    = calcNewRating(prev, correct, minor);
+      const snapshot = { rating: next, ts: Date.now() };
+      setRatingHistory(h => {
+        const updated = [...h, snapshot];
+        saveSkillRating(next, updated); // fire-and-forget
+        return updated;
+      });
+      return next;
     });
 
     setStats(prev => {
@@ -182,6 +205,8 @@ function AppContent() {
               longestStreak={longestStreak}
               practicedToday={practicedToday}
               dailyCount={dailyCount}
+              skillRating={skillRating}
+              ratingHistory={ratingHistory}
             />
           </View>
 

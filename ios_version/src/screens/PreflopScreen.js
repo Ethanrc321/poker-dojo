@@ -140,18 +140,21 @@ export default function PreflopScreen({ recordResult, isActive, onNavigate }) {
     if (!isSubscribed && isEmpty) { showStaminaModal(); return; }
     setUserAction(action);
     let isCorrect;
+    let isMinor = false;
     if (currentPos !== 'SB') {
       const result = EVALUATOR.evalPreflopRFI(currentHand, currentPos, action);
       setEvalResult(result);
       isCorrect = result.isCorrect;
+      if (!isCorrect) isMinor = Math.abs(result.evLossMBB ?? 99) < 4;
     } else {
       setEvalResult(null);
       const evLoss = getEVLoss(correctAction, action);
       isCorrect = evLoss.bb === 0 || Math.abs(evLoss.bb) <= 0.05;
+      if (!isCorrect) isMinor = Math.abs(evLoss.bb) <= 0.1;
     }
     setSessionStats(prev => ({ total: prev.total + 1, correct: prev.correct + (isCorrect ? 1 : 0) }));
     setStreak(prev => isCorrect ? prev + 1 : 0);
-    recordResult({ correct: isCorrect, position: currentPos });
+    recordResult({ correct: isCorrect, position: currentPos, minor: isMinor });
     if (!isSubscribed) decrement();
     triggerHaptic(isCorrect
       ? Haptics.NotificationFeedbackType.Success
