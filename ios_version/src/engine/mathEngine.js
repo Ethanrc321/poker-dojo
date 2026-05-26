@@ -341,7 +341,8 @@ function evQuestion() {
   const pot  = pick(POT_SIZES);
   const call = pick(CALLS);
 
-  const totalPot = pot + call;
+  // Total pot after calling = original pot + villain's bet + hero's call
+  const totalPot = pot + 2 * call;
   const { ev, decision: correct } = calculateEV(eq, totalPot, call);
   const evDisplay = Math.round(ev * 10) / 10;
 
@@ -356,8 +357,8 @@ function evQuestion() {
     options,
     correct,
     ev,
-    explanation: `EV = (Equity × Total Pot) − Call\n= (${eq / 100} × ${totalPot}) − ${call}\n= ${Math.round(eq / 100 * totalPot * 10) / 10} − ${call} = ${evDisplay}bb.\nThis is ${ev > 0 ? 'POSITIVE EV → CALL' : 'NEGATIVE EV → FOLD'}.`,
-    formula: 'EV = (Equity × Total Pot) − Call Amount',
+    explanation: `EV = (Equity × Total Pot After Call) − Call\nTotal pot = ${pot} + ${call} (villain) + ${call} (you) = ${totalPot}bb\n= (${eq / 100} × ${totalPot}) − ${call}\n= ${Math.round(eq / 100 * totalPot * 10) / 10} − ${call} = ${evDisplay}bb.\nThis is ${ev > 0 ? 'POSITIVE EV → CALL' : 'NEGATIVE EV → FOLD'}.`,
+    formula: 'EV = (Equity × Total Pot After Call) − Call Amount',
   };
 }
 

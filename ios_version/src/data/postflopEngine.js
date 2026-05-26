@@ -80,10 +80,17 @@ function evaluate(h1, h2, board) {
   let handCategory = 'air';
   let handDesc = 'no pair, no draw';
 
-  // Set / trips
+  // Set / trips / full house
   if (isPocket && boardVals.includes(v1)) {
     handCategory = 'set';
     handDesc = `set of ${h1.rank}s`;
+    // Upgrade to full house if the board has a pair of a different rank
+    const bRankCounts = {};
+    for (const v of boardVals) bRankCounts[v] = (bRankCounts[v] || 0) + 1;
+    if (Object.entries(bRankCounts).some(([v, c]) => c >= 2 && Number(v) !== v1)) {
+      handCategory = 'full_house';
+      handDesc = `full house, ${h1.rank}s full`;
+    }
   }
   // Two pair (pocket pair + board pair or two board hits)
   else if (!isPocket && h1Pairs && h2Pairs) {
@@ -134,11 +141,23 @@ function evaluate(h1, h2, board) {
     }
   }
 
-  // --- Draws (only when hand isn't already made) ---
+  // --- Flush & draws ---
   const allSuits = [s1, s2, ...boardSuits];
   const suitCounts = {};
   for (const s of allSuits) suitCounts[s] = (suitCounts[s] || 0) + 1;
   const hasFD = Object.values(suitCounts).some(n => n >= 4);
+
+  // Made flush: 5+ cards of the same suit across hole cards + board
+  // Overrides pair/set/full-house categories; keeps straight category if present (straight flush)
+  const isMadeFlush = Object.values(suitCounts).some(n => n >= 5);
+  if (isMadeFlush && handCategory !== 'straight') {
+    const flushSuit = Object.entries(suitCounts).find(([, n]) => n >= 5)[0];
+    const flushCards = [h1, h2, ...board].filter(c => c.suit === flushSuit);
+    const flushHighVal = Math.max(...flushCards.map(c => RANK_VAL[c.rank]));
+    const FN = { 14:'A',13:'K',12:'Q',11:'J',10:'T',9:'9',8:'8',7:'7',6:'6',5:'5',4:'4',3:'3',2:'2' };
+    handCategory = 'flush';
+    handDesc = `${FN[flushHighVal]}-high flush`;
+  }
 
   let oesd = false, gutshot = false;
   if (!isStraight) {
@@ -530,7 +549,7 @@ function scenarioRiverThinValue(deck) {
     const h = dealFrom(d, 2);
     const b = dealFrom(d, 5);
     texture = classifyTexture(b.slice(0, 3));
-    eval_   = evaluate(h[0], h[1], b.slice(0, 3));
+    eval_   = evaluate(h[0], h[1], b); // evaluate on full 5-card river board
     if (['top_pair_weak_kicker', 'middle_pair', 'top_pair_good_kicker'].includes(eval_.category)) {
       hero = h; board = b; break;
     }
@@ -539,7 +558,7 @@ function scenarioRiverThinValue(deck) {
     // Guaranteed: A♠K♥ on A♣7♦3♥2♠5♣ river — top pair good kicker
     hero = [{ rank: 'A', suit: '♠' }, { rank: 'K', suit: '♥' }];
     board = [{ rank: 'A', suit: '♣' }, { rank: '7', suit: '♦' }, { rank: '3', suit: '♥' }, { rank: '2', suit: '♠' }, { rank: '5', suit: '♣' }];
-    texture = 'Dry'; eval_ = evaluate(hero[0], hero[1], board.slice(0, 3));
+    texture = 'Dry'; eval_ = evaluate(hero[0], hero[1], board); // full 5-card board
   }
 
   const betSmall  = Math.round(pot * 0.28);

@@ -336,7 +336,7 @@ function donkBetQuestion() {
 // Which player's range benefits more from a given flop?
 
 function rangeBenefitQuestion() {
-  const opener  = pick(['BTG', 'CO', 'HJ', 'UTG']);
+  const opener  = pick(['BTN', 'CO', 'HJ', 'UTG']);
   const caller  = 'BB';
   const texture = pick(['Dry', 'Paired', 'Wet', 'Monotone']);
   const board   = boardOfTexture(texture);

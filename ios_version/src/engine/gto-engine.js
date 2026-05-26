@@ -321,7 +321,10 @@ export const BOARD = {
       }
     }
     const connected  = maxInWindow >= 3;
-    const openEnded  = maxInWindow >= 4 && minGap <= 1;
+    // openEnded: 4 cards in a 4-card window with no gaps (minGap === 0)
+    // gutshot:   4 cards in a 5-card window with exactly one missing card (minGap === 1)
+    // These are mutually exclusive — a board cannot be both simultaneously.
+    const openEnded  = maxInWindow >= 4 && minGap === 0;
     const gutshot    = maxInWindow >= 4 && minGap === 1;
     return { connected, openEnded, gutshot, maxCardsInWindow: maxInWindow, minGap: isFinite(minGap) ? minGap : 0 };
   },
