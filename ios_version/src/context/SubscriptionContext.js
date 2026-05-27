@@ -39,24 +39,24 @@ export function SubscriptionProvider({ children }) {
     });
   }, []);
 
-  // Shared dev-stub that activates premium for testing
+  // DEV ONLY — instantly grants premium. Remove before App Store submission.
+  const devUnlock = useCallback(async () => {
+    await AsyncStorage.setItem(SUB_KEY, 'true');
+    setIsSubscribed(true);
+    Alert.alert('Dev Mode', 'Premium unlocked for testing.');
+  }, []);
+
+  // Purchase stub — replace with real RevenueCat/StoreKit calls before App Store submission.
+  // Shows a neutral error so Apple reviewers don't see dev internals.
+  // TODO: wire up real IAP product IDs:
+  //   Monthly: 'com.pokerdojo.app.premium.monthly'  → $9.99/mo, 7-day trial
+  //   Yearly:  'com.pokerdojo.app.premium.yearly'   → $79.99/yr, 7-day trial
   const _devActivate = useCallback(async (planLabel) => {
     setPurchasing(true);
     Alert.alert(
-      'Poker Dojo Premium',
-      `${planLabel} — Unlock all trainers, no stamina limit, no ads.\n\n⚠️ In-App Purchase is not yet configured in App Store Connect. Tap "Enable (Dev)" to test the subscriber experience.`,
-      [
-        { text: 'Cancel', style: 'cancel', onPress: () => setPurchasing(false) },
-        {
-          // DEV OVERRIDE — remove this option once real IAP is configured
-          text: 'Enable (Dev)',
-          onPress: async () => {
-            await AsyncStorage.setItem(SUB_KEY, 'true');
-            setIsSubscribed(true);
-            setPurchasing(false);
-          },
-        },
-      ]
+      'Purchase Unavailable',
+      'In-App Purchases are not available at this time. Please try again later.',
+      [{ text: 'OK', onPress: () => setPurchasing(false) }]
     );
   }, []);
 
@@ -85,7 +85,7 @@ export function SubscriptionProvider({ children }) {
     <SubscriptionContext.Provider value={{
       isSubscribed, purchasing,
       purchaseSubscription, purchaseMonthly, purchaseYearly,
-      restorePurchases, manageSubscription,
+      restorePurchases, manageSubscription, devUnlock,
     }}>
       {children}
     </SubscriptionContext.Provider>

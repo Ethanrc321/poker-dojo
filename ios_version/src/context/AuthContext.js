@@ -11,19 +11,20 @@ import { auth, db } from '../services/firebase.js';
 WebBrowser.maybeCompleteAuthSession();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Replace with your OAuth client IDs from:
-//   console.cloud.google.com → APIs & Services → Credentials
-//
-// expoClientId    — used in Expo Go / development
-// iosClientId     — used in production iOS builds
-// androidClientId — used in production Android builds
-// webClientId     — Firebase web OAuth client (same project)
+// Google OAuth client IDs
+//   iosClientId — iOS OAuth client (console.cloud.google.com → Credentials)
+//   webClientId — Web client auto-created by Firebase (same project)
+// Note: Google Sign-In does not work in Expo Go (auth.expo.io proxy deprecated).
+//       Test via TestFlight or a development build.
 // ─────────────────────────────────────────────────────────────────────────────
+// Reverse client ID scheme — hardcoded for production iOS builds.
+// makeRedirectUri() returns empty string at module level in production (no
+// React context available), which causes useAuthRequest to throw.
+// The redirect URI for iOS Google OAuth is always the reverse client ID + :/oauthredirect.
 const GOOGLE_CLIENT_IDS = {
-  expoClientId:    'YOUR_EXPO_CLIENT_ID.apps.googleusercontent.com',
-  iosClientId:     'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-  androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-  webClientId:     'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+  iosClientId: '890667045895-ibcaj8p223luguf05kh4hd5g1ful175m.apps.googleusercontent.com',
+  webClientId: '890667045895-1s4b81ivbighrnvmjbll6fl0dtgfat26.apps.googleusercontent.com',
+  redirectUri: 'com.googleusercontent.apps.890667045895-ibcaj8p223luguf05kh4hd5g1ful175m:/oauthredirect',
 };
 
 const AuthContext = createContext({

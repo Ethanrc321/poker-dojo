@@ -30,7 +30,7 @@ export default {
     orientation:        'portrait',
     userInterfaceStyle: 'dark',
     icon:               './assets/icon.png',
-    splash:             { backgroundColor: '#0a0a0a' },
+    splash:             { backgroundColor: '#0F0F10' },
 
     // ── iOS ───────────────────────────────────────────────────────────────────
     ios: {
@@ -38,6 +38,19 @@ export default {
       bundleIdentifier: IS_PROD
         ? 'com.pokerdojo.app'        // ← Live App Store version
         : 'com.pokerdojo.app.dev',   // ← TestFlight / personal test build
+      buildNumber: '10',
+      infoPlist: {
+        // Standard HTTPS/TLS only — exempt from US export compliance
+        ITSAppUsesNonExemptEncryption: false,
+        // Required for Google Sign-In to redirect back to the app after OAuth
+        CFBundleURLTypes: [
+          {
+            CFBundleURLSchemes: [
+              'com.googleusercontent.apps.890667045895-ibcaj8p223luguf05kh4hd5g1ful175m',
+            ],
+          },
+        ],
+      },
     },
 
     // ── Android (future) ──────────────────────────────────────────────────────
@@ -48,9 +61,23 @@ export default {
         : 'com.pokerdojo.app.dev',
     },
 
+    // ── Plugins ───────────────────────────────────────────────────────────────
+    plugins: [
+      ['expo-notifications', { iosDisplayInForeground: true }],
+      [
+        'expo-splash-screen',
+        {
+          backgroundColor: '#0F0F10',
+          image:           './assets/icon.png',
+          imageWidth:      200,
+        },
+      ],
+    ],
+
     // ── Extra: expose APP_ENV to app code if needed ───────────────────────────
     extra: {
-      appEnv: process.env.APP_ENV ?? 'development',
+      appEnv:    process.env.APP_ENV ?? 'development',
+      eas:       { projectId: '5a6aa998-5f42-46f1-8d74-ffe3f0bf6bc6' },
     },
   },
 };

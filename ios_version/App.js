@@ -1,9 +1,36 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef, Component } from 'react';
+import { View, Text, StyleSheet, Alert } from 'react-native';
+
+// ── Error boundary — catches render errors and guarantees splash is hidden ────
+class ErrorBoundary extends Component {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error('[ErrorBoundary]', error, info); }
+  // If we catch an error, AppContent never mounts so hideAsync is never called.
+  // Call it here so the native splash doesn't sit on top of the error screen.
+  componentDidMount() {
+    SplashScreen.hideAsync().catch(() => {});
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#0F0F10', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 12 }}>Something went wrong</Text>
+          <Text style={{ color: '#888', fontSize: 13, textAlign: 'center' }}>{this.state.error?.message}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold } from '@expo-google-fonts/dm-sans';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Keep splash visible until we're ready — must be called after all imports
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 import DashboardScreen from './src/screens/DashboardScreen.js';
 import PreflopScreen   from './src/screens/PreflopScreen.js';
@@ -52,13 +79,15 @@ const OVERLAY_SCREENS = ['Subscription'];
 // ── Root shell — provides context ─────────────────────────────────────────────
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <SubscriptionProvider>
-          <AppContent />
-        </SubscriptionProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <SubscriptionProvider>
+            <AppContent />
+          </SubscriptionProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 
@@ -66,7 +95,7 @@ export default function App() {
 const ONBOARDING_KEY = '@poker_onboarding_done';
 
 function AppContent() {
-  const [fontsLoaded] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold });
+  const [fontsLoaded, fontError] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold });
   const [currentScreen,   setCurrentScreen]   = useState('Home');
   const [stats,           setStats]           = useState(INITIAL_STATS);
   const [onboardingDone,  setOnboardingDone]  = useState(null); // null = loading
@@ -75,7 +104,18 @@ function AppContent() {
 
   const { user, saveStats, loadStats } = useAuth();
   const cloudLoadedRef = useRef(false); // prevents initial load overwriting cloud data
-  const { streak, longestStreak, practicedToday, dailyCount, loaded: streakLoaded, recordPractice } = useStreak();
+  const { streak, longestStreak, practicedToday, dailyCount, loaded: streakLoaded, recordPractice, lostStreakInfo, clearLostStreakInfo } = useStreak();
+
+  // ── Lost-streak popup ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!lostStreakInfo) return;
+    const { oldStreak, wasRecord } = lostStreakInfo;
+    const title = '🔥 Streak Lost';
+    const body = wasRecord
+      ? `Your ${oldStreak}-day streak was your personal best! Don't stop now — start a new one today.`
+      : `Your ${oldStreak}-day streak is gone. Get back on the grind and start a new one!`;
+    Alert.alert(title, body, [{ text: 'Let\'s go', onPress: clearLostStreakInfo }]);
+  }, [lostStreakInfo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore haptics preference on first mount
   useEffect(() => { loadHapticsPreference(); }, []);
@@ -90,9 +130,26 @@ function AppContent() {
 
   // Check if onboarding has been completed before
   useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_KEY).then(val => {
-      setOnboardingDone(val === 'true');
-    });
+    AsyncStorage.getItem(ONBOARDING_KEY)
+      .then(val => setOnboardingDone(val === 'true'))
+      .catch(() => setOnboardingDone(false)); // fallback: show onboarding if storage fails
+  }, []);
+
+  // ── Splash screen hide — three independent triggers so it can never get stuck ─
+  //
+  // Trigger 1: unconditional on mount — hides as soon as React has painted.
+  // The dark loading View (#0F0F10) matches the splash bg so the transition is
+  // seamless. We no longer wait for onboardingDone because that dependency chain
+  // has proven unreliable in production.
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  // Trigger 2: hard timeout — if the effect above somehow fires late or the
+  // native hide is slow on iOS 26, this forces it after 2 s.
+  useEffect(() => {
+    const t = setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 2000);
+    return () => clearTimeout(t);
   }, []);
 
   // Schedule (or reschedule) the 8pm streak reminder on every app launch
@@ -175,7 +232,10 @@ function AppContent() {
     setCurrentScreen('Subscription');
   }, []);
 
-  if (!fontsLoaded || onboardingDone === null) return null;
+  // Only block render until onboarding state is loaded (fast AsyncStorage read).
+  // Return dark background instead of null so there's no transparent flash if
+  // the splash screen dismisses before onboarding state resolves.
+  if (onboardingDone === null) return <View style={{ flex: 1, backgroundColor: '#0F0F10' }} />;
 
   // Show onboarding for first-time users
   if (!onboardingDone) {

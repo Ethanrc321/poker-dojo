@@ -38,7 +38,7 @@ const FEATURES = [
 
 export default function SubscriptionScreen({ onNavigate }) {
   const insets = useSafeAreaInsets();
-  const { purchasing, purchaseMonthly, purchaseYearly, restorePurchases } = useSubscription();
+  const { purchasing, purchaseMonthly, purchaseYearly, restorePurchases, devUnlock } = useSubscription();
   const [selected, setSelected] = useState('yearly');
 
   function handleStartTrial() {
@@ -160,6 +160,11 @@ export default function SubscriptionScreen({ onNavigate }) {
           <Text style={styles.restoreText}>Restore a previous purchase</Text>
         </TouchableOpacity>
 
+        {/* DEV ONLY — remove before App Store submission */}
+        <TouchableOpacity onPress={devUnlock} style={styles.devBtn}>
+          <Text style={styles.devBtnText}>⚙️ Dev: Unlock Premium</Text>
+        </TouchableOpacity>
+
         <View style={{ height: Space.xl }} />
       </ScrollView>
     </View>
@@ -216,4 +221,7 @@ const styles = StyleSheet.create({
   finePrint:  { fontFamily: Fonts.regular, fontSize: Size.xxs, color: Colors.textTertiary, textAlign: 'center', lineHeight: Size.xxs * 1.7, marginBottom: Space.base },
   restoreBtn:  { paddingVertical: Space.xs },
   restoreText: { fontFamily: Fonts.regular, fontSize: Size.xs, color: Colors.textTertiary, textDecorationLine: 'underline' },
+
+  devBtn:     { marginTop: Space.lg, paddingVertical: Space.xs },
+  devBtnText: { fontFamily: Fonts.regular, fontSize: Size.xs, color: 'rgba(255,255,255,0.2)' },
 });

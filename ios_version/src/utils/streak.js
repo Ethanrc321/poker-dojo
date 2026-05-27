@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -9,8 +10,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Rules:
 //   • Last earned day was yesterday  → streak + 1
 //   • Last earned day was today      → no change (already counted)
-//   • Last earned day was 2+ days ago → reset to 1
+//   • Last earned day was 2+ days ago → streak BROKEN — show 0, popup, then
+//                                       start fresh from 1 on next qualifying day
 //   • Never earned                   → start at 1 on first qualifying day
+//
+// AppState listener re-checks on every foreground resume so the 0/10 counter
+// and streak reset correctly even if the user never fully closes the app.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const DAILY_GOAL = 10; // hands required to earn the streak day
@@ -90,16 +95,54 @@ export function useStreak() {
   const [practicedToday, setPracticedToday] = useState(false);
   const [dailyCount,     setDailyCount]     = useState(0);
   const [loaded,         setLoaded]         = useState(false);
+  // Non-null when the user just lost a streak: { oldStreak, wasRecord }
+  const [lostStreakInfo, setLostStreakInfo] = useState(null);
 
-  useEffect(() => {
-    loadRaw().then(({ count, lastDate, longest, dailyCount: dc }) => {
+  // ── Load & check for broken streak ─────────────────────────────────────────
+  const loadAndCheck = useCallback(async () => {
+    const { count, lastDate, longest, dailyCount: dc } = await loadRaw();
+    const today     = todayStr();
+    const yesterday = yesterdayStr();
+
+    // Streak is broken if the user had one and hasn't earned it today or yesterday
+    const streakBroken =
+      count > 0 &&
+      lastDate !== null &&
+      lastDate !== today &&
+      lastDate !== yesterday;
+
+    if (streakBroken) {
+      // Was this their personal best?
+      const wasRecord = count >= longest;
+      setLostStreakInfo({ oldStreak: count, wasRecord });
+      // Reset stored count to 0 so this popup never fires twice for the same loss
+      await AsyncStorage.setItem(K.count, '0');
+      setStreak(0);
+      setPracticedToday(false);
+    } else {
       setStreak(count);
-      setLongestStreak(longest);
-      setPracticedToday(lastDate === todayStr());
-      setDailyCount(dc);
-      setLoaded(true);
-    });
+      setPracticedToday(lastDate === today);
+    }
+
+    setLongestStreak(longest);
+    setDailyCount(dc);
+    setLoaded(true);
   }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadAndCheck();
+  }, [loadAndCheck]);
+
+  // ── AppState listener — re-check every time app comes to foreground ─────────
+  // Handles the common case where the user never fully closes the app:
+  // they do their 10 hands before bed, swipe the app away, open it next morning.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') loadAndCheck();
+    });
+    return () => sub.remove();
+  }, [loadAndCheck]);
 
   const recordPractice = useCallback(async () => {
     const result = await recordPracticeDay();
@@ -110,5 +153,18 @@ export function useStreak() {
     return result;
   }, []);
 
-  return { streak, longestStreak, practicedToday, dailyCount, loaded, recordPractice };
+  const clearLostStreakInfo = useCallback(() => {
+    setLostStreakInfo(null);
+  }, []);
+
+  return {
+    streak,
+    longestStreak,
+    practicedToday,
+    dailyCount,
+    loaded,
+    recordPractice,
+    lostStreakInfo,
+    clearLostStreakInfo,
+  };
 }
