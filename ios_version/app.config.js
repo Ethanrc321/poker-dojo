@@ -72,6 +72,7 @@ export default {
           imageWidth:      200,
         },
       ],
+      'react-native-purchases',
     ],
 
     // ── Extra: expose APP_ENV to app code if needed ───────────────────────────
