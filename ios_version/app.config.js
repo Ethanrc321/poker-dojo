@@ -38,7 +38,7 @@ export default {
       bundleIdentifier: IS_PROD
         ? 'com.pokerdojo.app'        // ← Live App Store version
         : 'com.pokerdojo.app.dev',   // ← TestFlight / personal test build
-      buildNumber: '10',
+      buildNumber: '11',
       infoPlist: {
         // Standard HTTPS/TLS only — exempt from US export compliance
         ITSAppUsesNonExemptEncryption: false,
@@ -72,7 +72,6 @@ export default {
           imageWidth:      200,
         },
       ],
-      'react-native-purchases',
     ],
 
     // ── Extra: expose APP_ENV to app code if needed ───────────────────────────
