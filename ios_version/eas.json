@@ -1,0 +1,52 @@
+{
+  "cli": {
+    "version": ">= 10.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "development"
+      },
+      "ios": {
+        "simulator": false
+      }
+    },
+    "testflight": {
+      "distribution": "store",
+      "env": {
+        "APP_ENV": "production"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "env": {
+        "APP_ENV": "production"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "ethanrc321@gmail.com",
+        "ascAppId": "6773421029",
+        "appleTeamId": "6H9U3QFMQN"
+      }
+    },
+    "testflight": {
+      "ios": {
+        "appleId": "ethanrc321@gmail.com",
+        "ascAppId": "6773421029",
+        "appleTeamId": "6H9U3QFMQN"
+      }
+    }
+  }
+}

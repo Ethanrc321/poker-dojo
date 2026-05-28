@@ -1,8 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Firebase service
-//
-// Replace the placeholder values below with your actual Firebase project config:
-//   console.firebase.google.com → Project Settings → Your apps → Web app
+// Firebase service — project: poker-dojo-4d129
+// Auth: Google Sign-In enabled
+// Firestore: production mode, security rules restrict reads/writes to owner uid
 // ─────────────────────────────────────────────────────────────────────────────
 import { initializeApp, getApps } from 'firebase/app';
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
@@ -10,12 +9,12 @@ import { getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
-  apiKey:            'YOUR_API_KEY',
-  authDomain:        'YOUR_PROJECT.firebaseapp.com',
-  projectId:         'YOUR_PROJECT_ID',
-  storageBucket:     'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId:             'YOUR_APP_ID',
+  apiKey:            'AIzaSyA2NsBQEORxKTy-WSjnGzAj5BtibpLxR4g',
+  authDomain:        'poker-dojo-4d129.firebaseapp.com',
+  projectId:         'poker-dojo-4d129',
+  storageBucket:     'poker-dojo-4d129.firebasestorage.app',
+  messagingSenderId: '890667045895',
+  appId:             '1:890667045895:web:41226597979aa3505386a2',
 };
 
 let auth = null;

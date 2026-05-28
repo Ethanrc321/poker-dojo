@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, Component } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 
 // ── Error boundary — catches render errors and guarantees splash is hidden ────
 class ErrorBoundary extends Component {
@@ -106,16 +106,7 @@ function AppContent() {
   const cloudLoadedRef = useRef(false); // prevents initial load overwriting cloud data
   const { streak, longestStreak, practicedToday, dailyCount, loaded: streakLoaded, recordPractice, lostStreakInfo, clearLostStreakInfo } = useStreak();
 
-  // ── Lost-streak popup ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!lostStreakInfo) return;
-    const { oldStreak, wasRecord } = lostStreakInfo;
-    const title = '🔥 Streak Lost';
-    const body = wasRecord
-      ? `Your ${oldStreak}-day streak was your personal best! Don't stop now — start a new one today.`
-      : `Your ${oldStreak}-day streak is gone. Get back on the grind and start a new one!`;
-    Alert.alert(title, body, [{ text: 'Let\'s go', onPress: clearLostStreakInfo }]);
-  }, [lostStreakInfo]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Lost-streak modal is shown via lostStreakInfo state (see JSX below)
 
   // Restore haptics preference on first mount
   useEffect(() => { loadHapticsPreference(); }, []);
@@ -327,8 +318,32 @@ function AppContent() {
           />
         )}
 
-
       </View>
+
+      {/* Lost-streak in-app popup */}
+      <Modal
+        visible={!!lostStreakInfo}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={clearLostStreakInfo}
+      >
+        <View style={styles.streakOverlay}>
+          <View style={styles.streakCard}>
+            <Text style={styles.streakEmoji}>🔥</Text>
+            <Text style={styles.streakTitle}>Streak Lost</Text>
+            <Text style={styles.streakBody}>
+              {lostStreakInfo?.wasRecord
+                ? `Your ${lostStreakInfo.oldStreak}-day streak was a personal best!`
+                : `Your ${lostStreakInfo?.oldStreak}-day streak is gone.`}
+            </Text>
+            <Text style={styles.streakHint}>Start a new one today.</Text>
+            <TouchableOpacity style={styles.streakBtn} onPress={clearLostStreakInfo} activeOpacity={0.8}>
+              <Text style={styles.streakBtnText}>Let's go</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -336,4 +351,35 @@ function AppContent() {
 const styles = StyleSheet.create({
   root:       { flex: 1, backgroundColor: '#0F0F10' },
   screenWrap: { flex: 1, paddingBottom: 100 },
+
+  // Lost-streak popup
+  streakOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  streakCard: {
+    width: '100%',
+    backgroundColor: '#1C1C1E',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  streakEmoji: { fontSize: 36, marginBottom: 10 },
+  streakTitle: { fontSize: 18, fontWeight: '600', color: '#FFFFFF', marginBottom: 8, letterSpacing: -0.2 },
+  streakBody:  { fontSize: 14, color: 'rgba(255,255,255,0.65)', textAlign: 'center', lineHeight: 20 },
+  streakHint:  { fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 4, marginBottom: 20 },
+  streakBtn: {
+    width: '100%',
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: '#E8A030',
+    alignItems: 'center',
+  },
+  streakBtnText: { fontSize: 15, fontWeight: '600', color: '#000', letterSpacing: 0.1 },
 });
