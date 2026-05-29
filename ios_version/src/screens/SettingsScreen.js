@@ -55,7 +55,7 @@ export default function SettingsScreen({ resetStats, onNavigate }) {
   const { user, loading, signIn, signOut } = useAuth();
   const {
     isSubscribed,
-    restorePurchases, manageSubscription,
+    restorePurchases, manageSubscription, devUnlock, devLock,
   } = useSubscription();
   const [hapticsOn, setHapticsOn] = useState(getHapticsEnabled());
 
@@ -233,6 +233,16 @@ export default function SettingsScreen({ resetStats, onNavigate }) {
           />
         </View>
 
+        {/* DEV ONLY — remove before App Store submission */}
+        <View style={styles.devSection}>
+          <TouchableOpacity onPress={devUnlock} style={styles.devBtn}>
+            <Text style={styles.devBtnText}>⚙️ Dev: Unlock Premium</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={devLock} style={styles.devBtn}>
+            <Text style={styles.devBtnText}>⚙️ Dev: Lock Premium (test ads)</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -287,4 +297,9 @@ const styles = StyleSheet.create({
   upgradeBtn:        { margin: Space.base, paddingVertical: 14, borderRadius: Radius.lg, backgroundColor: C.amber, alignItems: 'center' },
   upgradeBtnDisabled:{ opacity: 0.5 },
   upgradeBtnText:    { fontFamily: Fonts.semibold, fontSize: Size.base, color: '#000' },
+
+  // DEV ONLY
+  devSection: { alignItems: 'center', marginTop: Space.lg, gap: Space.xs },
+  devBtn:     { paddingVertical: Space.xs },
+  devBtnText: { fontFamily: Fonts.regular, fontSize: Size.xs, color: 'rgba(255,255,255,0.2)' },
 });
