@@ -5,7 +5,7 @@ import {
   scheduleStaminaRefillNotification,
   cancelStaminaRefillNotification,
 } from './notifications.js';
-import { RewardedAd, RewardedAdEventType, TestIds } from 'react-native-google-mobile-ads';
+import { RewardedAd, RewardedAdEventType, AdEventType, TestIds } from 'react-native-google-mobile-ads';
 
 const ADMOB_REWARDED_ID = __DEV__
   ? TestIds.REWARDED
@@ -96,40 +96,42 @@ export function useStamina() {
         requestNonPersonalizedAdsOnly: true,
       });
 
-      let earned = false;
+      let earned   = false;
+      let resolved = false;
 
-      const unsubEarned = rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+      function finish(success) {
+        if (resolved) return;
+        resolved = true;
+        resolve(success);
+      }
+
+      // Register ALL listeners before calling load()
+      rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => {
+        rewarded.show().catch(() => finish(false));
+      });
+
+      rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
         earned = true;
       });
 
-      const unsubClosed = rewarded.addAdEventListener(RewardedAdEventType.CLOSED, async () => {
-        unsubEarned();
-        unsubClosed();
+      rewarded.addAdEventListener(AdEventType.CLOSED, async () => {
         if (earned) {
           staminaRef.current = MAX_STAMINA;
           setStamina(MAX_STAMINA);
           setDepletedAt(null);
           await AsyncStorage.multiRemove([K.count, K.depleted]);
           cancelStaminaRefillNotification();
-          resolve(true);
+          finish(true);
         } else {
-          resolve(false);
+          finish(false);
         }
       });
 
-      const unsubError = rewarded.addAdEventListener('error', () => {
-        unsubEarned();
-        unsubClosed();
-        unsubError();
-        resolve(false);
+      rewarded.addAdEventListener(AdEventType.ERROR, () => {
+        finish(false);
       });
 
       rewarded.load();
-
-      const unsubLoaded = rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => {
-        unsubLoaded();
-        rewarded.show();
-      });
     });
   }, []);
 

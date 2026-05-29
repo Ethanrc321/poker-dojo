@@ -166,10 +166,14 @@ export default function PreflopScreen({ recordResult, isActive, onNavigate }) {
     if (!isSubscribed && isEmpty) setStaminaModalVisible(true);
   }, [isSubscribed, isEmpty]);
 
+  const [adLoading, setAdLoading] = useState(false);
   const handleAdRefill = useCallback(async () => {
+    if (adLoading) return;
+    setAdLoading(true);
     const success = await refillFromAd();
+    setAdLoading(false);
     if (success) { setStaminaModalVisible(false); drawHand(); }
-  }, [refillFromAd, drawHand]);
+  }, [adLoading, refillFromAd, drawHand]);
 
   const evLoss  = (userAction && currentPos === 'SB') ? getEVLoss(correctAction, userAction) : null;
   const fbStyle = userAction ? (evLoss ? getFeedbackStyle(evLoss) : getFeedbackFromEval(evalResult)) : null;
@@ -485,9 +489,9 @@ export default function PreflopScreen({ recordResult, isActive, onNavigate }) {
               </View>
 
               {/* Ad refill button */}
-              <TouchableOpacity style={styles.adBtn} onPress={handleAdRefill} activeOpacity={0.85}>
+              <TouchableOpacity style={[styles.adBtn, adLoading && { opacity: 0.55 }]} onPress={handleAdRefill} activeOpacity={0.85} disabled={adLoading}>
                 <Ionicons name="film-outline" size={18} color={C.amber} />
-                <Text style={styles.adBtnText}>Refill</Text>
+                <Text style={styles.adBtnText}>{adLoading ? 'Loading ad…' : 'Watch Ad to Refill'}</Text>
               </TouchableOpacity>
 
               {/* Countdown */}
