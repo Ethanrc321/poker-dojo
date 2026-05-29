@@ -78,10 +78,20 @@ export function SubscriptionProvider({ children }) {
   async function getPackage(type) {
     try {
       const offerings = await Purchases.getOfferings();
-      const current   = offerings.current;
-      if (!current) return null;
-      return current.availablePackages.find(p => p.packageType === type) ?? null;
+      console.log('[RevenueCat] offerings:', JSON.stringify(offerings, null, 2));
+      const current = offerings.current;
+      if (!current) {
+        Alert.alert('Debug', 'offerings.current is null. Check RevenueCat dashboard.');
+        return null;
+      }
+      console.log('[RevenueCat] packages:', current.availablePackages.map(p => p.packageType));
+      const pkg = current.availablePackages.find(p => p.packageType === type) ?? null;
+      if (!pkg) {
+        Alert.alert('Debug', `No package found for type "${type}". Available: ${current.availablePackages.map(p => p.packageType).join(', ')}`);
+      }
+      return pkg;
     } catch (e) {
+      Alert.alert('Debug Error', e.message ?? JSON.stringify(e));
       console.warn('[RevenueCat] getOfferings error:', e);
       return null;
     }
