@@ -129,16 +129,21 @@ export function SubscriptionProvider({ children }) {
   }, []);
 
   // ── DEV ONLY — remove before App Store submission ─────────────────────────
-  const devUnlock = useCallback(async () => {
+  const devUnlock = useCallback(() => {
     setIsSubscribed(true);
     Alert.alert('Dev Mode', 'Premium unlocked for testing.');
+  }, []);
+
+  const devLock = useCallback(() => {
+    setIsSubscribed(false);
+    Alert.alert('Dev Mode', 'Premium locked — stamina + ads active.');
   }, []);
 
   return (
     <SubscriptionContext.Provider value={{
       isSubscribed, purchasing,
       purchaseSubscription, purchaseMonthly, purchaseYearly,
-      restorePurchases, manageSubscription, devUnlock,
+      restorePurchases, manageSubscription, devUnlock, devLock,
     }}>
       {children}
     </SubscriptionContext.Provider>

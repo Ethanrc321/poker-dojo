@@ -38,7 +38,7 @@ const FEATURES = [
 
 export default function SubscriptionScreen({ onNavigate }) {
   const insets = useSafeAreaInsets();
-  const { purchasing, purchaseMonthly, purchaseYearly, restorePurchases, devUnlock } = useSubscription();
+  const { purchasing, purchaseMonthly, purchaseYearly, restorePurchases, devUnlock, devLock, isSubscribed } = useSubscription();
   const [selected, setSelected] = useState('yearly');
 
   function handleStartTrial() {
@@ -163,6 +163,9 @@ export default function SubscriptionScreen({ onNavigate }) {
         {/* DEV ONLY — remove before App Store submission */}
         <TouchableOpacity onPress={devUnlock} style={styles.devBtn}>
           <Text style={styles.devBtnText}>⚙️ Dev: Unlock Premium</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={devLock} style={styles.devBtn}>
+          <Text style={styles.devBtnText}>⚙️ Dev: Lock Premium (test ads)</Text>
         </TouchableOpacity>
 
         <View style={{ height: Space.xl }} />
