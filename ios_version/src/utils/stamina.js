@@ -5,6 +5,11 @@ import {
   scheduleStaminaRefillNotification,
   cancelStaminaRefillNotification,
 } from './notifications.js';
+import { RewardedAd, RewardedAdEventType, TestIds } from 'react-native-google-mobile-ads';
+
+const ADMOB_REWARDED_ID = __DEV__
+  ? TestIds.REWARDED
+  : 'ca-app-pub-2288791319196313/1061547216';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stamina system — free-tier Preflop trainer
@@ -86,16 +91,45 @@ export function useStamina() {
   //   Call the restore block inside the ad's earned-reward callback, and resolve(false)
   //   inside the ad's dismissed-without-reward / error callback.
   const refillFromAd = useCallback(() => {
-    return new Promise(async resolve => {
-      // ── STUB (remove when real ads are wired) ──────────────────────────────
-      // Simulates a completed rewarded ad with no intermediate popup.
-      // ──────────────────────────────────────────────────────────────────────
-      staminaRef.current = MAX_STAMINA;
-      setStamina(MAX_STAMINA);
-      setDepletedAt(null);
-      await AsyncStorage.multiRemove([K.count, K.depleted]);
-      cancelStaminaRefillNotification();
-      resolve(true);
+    return new Promise(resolve => {
+      const rewarded = RewardedAd.createForAdRequest(ADMOB_REWARDED_ID, {
+        requestNonPersonalizedAdsOnly: true,
+      });
+
+      let earned = false;
+
+      const unsubEarned = rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+        earned = true;
+      });
+
+      const unsubClosed = rewarded.addAdEventListener(RewardedAdEventType.CLOSED, async () => {
+        unsubEarned();
+        unsubClosed();
+        if (earned) {
+          staminaRef.current = MAX_STAMINA;
+          setStamina(MAX_STAMINA);
+          setDepletedAt(null);
+          await AsyncStorage.multiRemove([K.count, K.depleted]);
+          cancelStaminaRefillNotification();
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      });
+
+      const unsubError = rewarded.addAdEventListener('error', () => {
+        unsubEarned();
+        unsubClosed();
+        unsubError();
+        resolve(false);
+      });
+
+      rewarded.load();
+
+      const unsubLoaded = rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => {
+        unsubLoaded();
+        rewarded.show();
+      });
     });
   }, []);
 

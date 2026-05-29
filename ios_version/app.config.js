@@ -38,7 +38,7 @@ export default {
       bundleIdentifier: IS_PROD
         ? 'com.pokerdojo.app'        // ← Live App Store version
         : 'com.pokerdojo.app.dev',   // ← TestFlight / personal test build
-      buildNumber: '12',
+      buildNumber: '13',
       infoPlist: {
         // Standard HTTPS/TLS only — exempt from US export compliance
         ITSAppUsesNonExemptEncryption: false,
@@ -68,6 +68,13 @@ export default {
         'expo-splash-screen',
         {
           backgroundColor: '#0F0F10',
+        },
+      ],
+      [
+        'react-native-google-mobile-ads',
+        {
+          androidAppId: 'ca-app-pub-2288791319196313~3615558364',
+          iosAppId:     'ca-app-pub-2288791319196313~3615558364',
         },
       ],
     ],
