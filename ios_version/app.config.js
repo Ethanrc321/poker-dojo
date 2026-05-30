@@ -38,7 +38,7 @@ export default {
       bundleIdentifier: IS_PROD
         ? 'com.pokerdojo.app'        // ← Live App Store version
         : 'com.pokerdojo.app.dev',   // ← TestFlight / personal test build
-      buildNumber: '14',
+      buildNumber: '15',
       infoPlist: {
         // Standard HTTPS/TLS only — exempt from US export compliance
         ITSAppUsesNonExemptEncryption: false,
