@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   scheduleStaminaRefillNotification,
@@ -128,6 +128,10 @@ export function useStamina() {
       });
 
       rewarded.addAdEventListener(AdEventType.ERROR, () => {
+        Alert.alert(
+          'Ad Unavailable',
+          'No ad is available right now. Please try again later or wait for your stamina to refill automatically.'
+        );
         finish(false);
       });
 

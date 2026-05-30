@@ -28,9 +28,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold } from '@expo-google-fonts/dm-sans';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import mobileAds from 'react-native-google-mobile-ads';
 
 // Keep splash visible until we're ready — must be called after all imports
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Initialise AdMob as early as possible
+mobileAds().initialize().catch(() => {});
 
 import DashboardScreen from './src/screens/DashboardScreen.js';
 import PreflopScreen   from './src/screens/PreflopScreen.js';
